@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/layout/app-shell';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -34,6 +35,7 @@ type SessionItem = {
 };
 
 export default function QuickCreatePage() {
+  const router = useRouter();
   const { user } = useAuth();
   const [lectureTitle, setLectureTitle] = useState('');
   const [notesText, setNotesText] = useState('');
@@ -120,6 +122,7 @@ export default function QuickCreatePage() {
       });
 
       await loadSessionHistory();
+      router.push('/dashboard');
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Something went wrong.');
     } finally {

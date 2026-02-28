@@ -141,75 +141,6 @@ Generate exactly ${count} question(s) in valid JSON format.`;
 };
 
 /**
- * Generate Python debugging explanation
- */
-export const generatePythonDebugExplanation = async (
-  code: string,
-  error: string,
-  explanationStyle: ExplanationStyle
-): Promise<{
-  explanation: string;
-  hint: string;
-  suggested_improvement: string;
-}> => {
-  const stylePrompt = getStylePrompt(explanationStyle);
-
-  const prompt = `You are an expert Python tutor. A student's code has an error and needs help understanding it.
-
-Code:
-\`\`\`python
-${code}
-\`\`\`
-
-Error Message:
-${error}
-
-${stylePrompt}
-
-Please provide:
-1. A clear explanation of what went wrong
-2. A helpful hint to guide the student
-3. A suggested improvement to the code
-
-Format your response as JSON:
-{
-  "explanation": "...",
-  "hint": "...",
-  "suggested_improvement": "..."
-}`;
-
-  try {
-    const response = await getOpenAIClient().chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 600,
-    });
-
-    const content = response.choices[0]?.message?.content || '{}';
-    const parsed = JSON.parse(content);
-
-    return {
-      explanation: parsed.explanation || '',
-      hint: parsed.hint || '',
-      suggested_improvement: parsed.suggested_improvement || '',
-    };
-  } catch (error) {
-    console.error('Error generating Python debug explanation:', error);
-    return {
-      explanation: 'Unable to generate explanation at this time.',
-      hint: 'Check the error message and review the Python documentation.',
-      suggested_improvement: 'Review your code logic.',
-    };
-  }
-};
-
-/**
  * Generate roadmap for learning project
  */
 export const generateLearningRoadmap = async (
@@ -375,11 +306,11 @@ Return ONLY valid JSON as an array of objects:
     const content = response.choices[0]?.message?.content || '[]';
     const parsed = parseJsonArrayResponse(content);
 
-    return parsed
+    return (parsed as Array<{ question?: string; options?: unknown[]; correct_answer?: string; explanation?: string }>)
       .filter((item) => item?.question && Array.isArray(item?.options) && item?.correct_answer)
       .map((item) => ({
         question: String(item.question),
-        options: item.options.map((opt: unknown) => String(opt)).slice(0, 6),
+        options: (item.options || []).map((opt: unknown) => String(opt)).slice(0, 6),
         correct_answer: String(item.correct_answer),
         explanation: String(item.explanation || ''),
       }));
@@ -422,7 +353,7 @@ Return ONLY valid JSON as an array:
     const content = response.choices[0]?.message?.content || '[]';
     const parsed = parseJsonArrayResponse(content);
 
-    return parsed
+    return (parsed as Array<{ front?: unknown; back?: unknown }>)
       .filter((item) => item?.front && item?.back)
       .map((item) => ({
         front: String(item.front),

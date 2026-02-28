@@ -55,16 +55,6 @@ export interface DiagnosticQuiz {
   completed_at: string;
 }
 
-export interface CodingSubmission {
-  id: string;
-  user_id: string;
-  challenge_id: string;
-  code: string;
-  is_correct: boolean | null;
-  error_message: string | null;
-  submitted_at: string;
-}
-
 export interface AIExplanation {
   explanation: string;
   misconception: string;

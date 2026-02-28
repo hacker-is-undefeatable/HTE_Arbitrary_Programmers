@@ -293,7 +293,31 @@ create policy "Users can insert own generated flashcards"
   on public.generated_flashcards for insert
   with check ( auth.uid() = user_id );
 
--- 10. REVISION_TIME_LOGS TABLE
+-- 10. FLIGHT_TICKETS TABLE
+create table if not exists public.flight_tickets (
+  id uuid default gen_random_uuid() primary key,
+  session_id uuid references public.lecture_sessions(id) on delete cascade not null,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  title text not null,
+  checkpoints jsonb not null default '[]'::jsonb,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create index if not exists idx_flight_tickets_session_id on public.flight_tickets(session_id);
+create index if not exists idx_flight_tickets_user_id on public.flight_tickets(user_id);
+create index if not exists idx_flight_tickets_created_at on public.flight_tickets(created_at desc);
+
+alter table public.flight_tickets enable row level security;
+
+create policy "Users can view own flight tickets"
+  on public.flight_tickets for select
+  using ( auth.uid() = user_id );
+
+create policy "Users can insert own flight tickets"
+  on public.flight_tickets for insert
+  with check ( auth.uid() = user_id );
+
+-- 11. REVISION_TIME_LOGS TABLE
 create table if not exists public.revision_time_logs (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,

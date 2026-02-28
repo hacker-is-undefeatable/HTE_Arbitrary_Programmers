@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { MathText } from '@/components/math-text';
 import { useAuth } from '@/hooks/useAuth';
+import { Checkpoint, CITY_SIZES } from '@/types/flight';
 
 type QuizItem = {
   question: string;
@@ -20,6 +21,13 @@ type QuizItem = {
 type FlashcardItem = {
   front: string;
   back: string;
+};
+
+type FlightTicketItem = {
+  id: string;
+  title: string;
+  checkpoints: Checkpoint[];
+  created_at: string;
 };
 
 type SessionItem = {
@@ -36,6 +44,7 @@ type SessionItem = {
   created_at: string;
   generated_quizzes: QuizItem[];
   generated_flashcards: FlashcardItem[];
+  flight_tickets: FlightTicketItem[];
 };
 
 type QuizAttemptRow = {
@@ -180,6 +189,7 @@ export default function LectureSessionDetailPage() {
   const lastScrollYRef = useRef(0);
 
   const sectionTabs = [
+    { key: 'flight-tickets', label: 'Flight Tickets' },
     { key: 'uploaded-files', label: 'Uploaded Files' },
     { key: 'ai-summary', label: 'AI Summary' },
     { key: 'transcript', label: 'Transcript' },
@@ -569,6 +579,60 @@ export default function LectureSessionDetailPage() {
                       <p className="text-muted-foreground">No notes file saved.</p>
                     )}
                   </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === 'flight-tickets' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Flight Tickets</CardTitle>
+                  <CardDescription>Saved route checkpoints from your generated ticket</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {session.flight_tickets?.length > 0 ? (
+                    session.flight_tickets.map((ticket) => (
+                      <div key={ticket.id} className="rounded-md border bg-muted/20 p-4">
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                          <p className="font-medium">{ticket.title || 'Flight Ticket'}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(ticket.created_at).toLocaleString()}
+                          </p>
+                        </div>
+
+                        {ticket.checkpoints?.length > 0 ? (
+                          <div className="space-y-2">
+                            {ticket.checkpoints.map((checkpoint) => (
+                              <div key={checkpoint.id} className="rounded-md border bg-background p-3">
+                                <div className="flex items-center gap-2">
+                                  <span>{CITY_SIZES[checkpoint.type].icon}</span>
+                                  <p className="text-sm font-medium">{checkpoint.name}</p>
+                                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                                    {CITY_SIZES[checkpoint.type].label}
+                                  </span>
+                                </div>
+
+                                {checkpoint.children && checkpoint.children.length > 0 && (
+                                  <div className="ml-4 mt-2 space-y-1 border-l pl-3">
+                                    {checkpoint.children.map((subCheckpoint) => (
+                                      <div key={subCheckpoint.id} className="flex items-center gap-2 text-sm">
+                                        <span>{CITY_SIZES[subCheckpoint.type].icon}</span>
+                                        <span>{subCheckpoint.name}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No checkpoints saved for this ticket.</p>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No saved flight tickets for this lecture yet.</p>
+                  )}
                 </CardContent>
               </Card>
             )}

@@ -5,6 +5,7 @@ import {
   generateLectureQuizzes,
   summarizeLectureFromTranscript,
 } from '@/utils/aiService';
+import { buildLectureCheckpoints } from '@/utils/flightTicketEngine';
 import { createServerClient } from '@/utils/supabase';
 import { uploadFileToSupabaseStorage } from '@/utils/supabaseStorage';
 
@@ -113,6 +114,7 @@ export async function POST(request: NextRequest) {
 
     const generatedQuizzes = await generateLectureQuizzes(lectureTitle, transcriptText, summary, 5);
     const generatedFlashcards = await generateLectureFlashcards(lectureTitle, transcriptText, summary, 8);
+    const checkpoints = buildLectureCheckpoints(summary, generatedQuizzes, generatedFlashcards);
 
     const { data: session, error: sessionError } = await supabase
       .from('lecture_sessions')
@@ -174,6 +176,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (checkpoints.length > 0) {
+      const { error: flightTicketError } = await supabase.from('flight_tickets').insert([
+        {
+          session_id: session.id,
+          user_id: userId,
+          title: `${lectureTitle} Ticket`,
+          checkpoints,
+        },
+      ]);
+
+      if (flightTicketError) {
+        console.error('Failed to store flight ticket:', flightTicketError);
+      }
+    }
+
     return NextResponse.json({
       sessionId: session.id,
       lectureTitle,
@@ -185,6 +202,7 @@ export async function POST(request: NextRequest) {
       notesUrl,
       quizzes: generatedQuizzes,
       flashcards: generatedFlashcards,
+      checkpoints,
     });
   } catch (error) {
     console.error('Quick create processing error:', error);
@@ -217,7 +235,8 @@ export async function GET(request: NextRequest) {
         `
           *,
           generated_quizzes(*),
-          generated_flashcards(*)
+          generated_flashcards(*),
+          flight_tickets(*)
         `
       )
       .eq('user_id', userId)

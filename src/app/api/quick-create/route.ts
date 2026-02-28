@@ -233,3 +233,44 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch session history.' }, { status: 500 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = createServerClient();
+    const body = await request.json();
+
+    const userId = String(body?.userId || '').trim();
+    const sessionIds = Array.isArray(body?.sessionIds)
+      ? body.sessionIds
+          .map((id: unknown) => String(id || '').trim())
+          .filter((id: string) => Boolean(id))
+      : [];
+
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    }
+
+    if (sessionIds.length === 0) {
+      return NextResponse.json({ error: 'sessionIds is required' }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from('lecture_sessions')
+      .delete()
+      .eq('user_id', userId)
+      .in('id', sessionIds)
+      .select('id');
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      deletedCount: data?.length || 0,
+      deletedIds: (data || []).map((item) => item.id),
+    });
+  } catch (error) {
+    console.error('Quick create delete error:', error);
+    return NextResponse.json({ error: 'Failed to delete lecture sessions.' }, { status: 500 });
+  }
+}

@@ -3,7 +3,9 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { AppShell } from '@/components/layout/app-shell';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -45,6 +47,8 @@ export default function LectureSessionDetailPage() {
   const [session, setSession] = useState<SessionItem | null>(null);
   const [showSectionNav, setShowSectionNav] = useState(true);
   const [activeTab, setActiveTab] = useState('uploaded-files');
+  const [flashcardIndex, setFlashcardIndex] = useState(0);
+  const [showFlashcardBack, setShowFlashcardBack] = useState(false);
   const lastScrollYRef = useRef(0);
 
   const sectionTabs = [
@@ -107,6 +111,16 @@ export default function LectureSessionDetailPage() {
     loadSession();
   }, [user?.id, sessionId]);
 
+  useEffect(() => {
+    if (activeTab !== 'generated-flashcards') {
+      setShowFlashcardBack(false);
+      return;
+    }
+
+    setFlashcardIndex(0);
+    setShowFlashcardBack(false);
+  }, [activeTab, session?.id]);
+
   const createdAt = useMemo(() => {
     if (!session?.created_at) return '';
     return new Date(session.created_at).toLocaleString();
@@ -122,32 +136,35 @@ export default function LectureSessionDetailPage() {
             showSectionNav ? 'translate-y-0' : '-translate-y-[140%]'
           }`}
         >
-          <div className="inline-flex min-w-full items-center gap-1 sm:min-w-max">
-            {sectionTabs.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={`whitespace-nowrap rounded-sm px-3 py-2 text-sm transition-colors ${
-                  activeTab === tab.key
-                    ? 'bg-muted text-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center whitespace-nowrap rounded-sm px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to dashboard
+            </Link>
+            <div className="inline-flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+              {sectionTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`whitespace-nowrap rounded-sm px-3 py-2 text-sm transition-colors ${
+                    activeTab === tab.key
+                      ? 'bg-muted text-foreground'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       }
     >
       <div className="mx-auto max-w-4xl space-y-6">
-        <div className="text-sm text-muted-foreground">
-          <Link href="/dashboard" className="underline">
-            Back to dashboard
-          </Link>
-        </div>
-
         {loading ? (
           <Card>
             <CardContent className="p-6 text-sm text-muted-foreground">Loading lecture session...</CardContent>
@@ -276,14 +293,77 @@ export default function LectureSessionDetailPage() {
                 <CardHeader>
                   <CardTitle>Generated Flashcards</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-4">
                   {session.generated_flashcards?.length > 0 ? (
-                    session.generated_flashcards.map((flashcard, index) => (
-                      <div key={`${flashcard.front}-${index}`} className="rounded-md border bg-muted/20 p-3">
-                        <p className="font-medium">Front: {flashcard.front}</p>
-                        <p className="mt-1 text-sm text-muted-foreground">Back: {flashcard.back}</p>
-                      </div>
-                    ))
+                    (() => {
+                      const currentFlashcard = session.generated_flashcards[flashcardIndex];
+                      return (
+                        <>
+                          <p className="text-sm text-muted-foreground">
+                            Card {flashcardIndex + 1} of {session.generated_flashcards.length}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setShowFlashcardBack((prev) => !prev)}
+                            className="w-full"
+                          >
+                            <div className="[perspective:1200px]">
+                              <div
+                                className="relative h-[260px] w-full transition-transform duration-500"
+                                style={{
+                                  transformStyle: 'preserve-3d',
+                                  transform: showFlashcardBack ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                                }}
+                              >
+                                <div
+                                  className="absolute inset-0 flex flex-col items-center justify-center rounded-md border bg-muted/20 p-8 text-center"
+                                  style={{ backfaceVisibility: 'hidden' }}
+                                >
+                                  <p className="mb-3 text-xs uppercase tracking-wide text-muted-foreground">Front</p>
+                                  <p className="text-base font-medium">{currentFlashcard.front}</p>
+                                  <p className="mt-4 text-xs text-muted-foreground">Click card to flip</p>
+                                </div>
+
+                                <div
+                                  className="absolute inset-0 flex flex-col items-center justify-center rounded-md border bg-muted/30 p-8 text-center"
+                                  style={{
+                                    backfaceVisibility: 'hidden',
+                                    transform: 'rotateY(180deg)',
+                                  }}
+                                >
+                                  <p className="mb-3 text-xs uppercase tracking-wide text-muted-foreground">Back</p>
+                                  <p className="text-base font-medium">{currentFlashcard.back}</p>
+                                  <p className="mt-4 text-xs text-muted-foreground">Click card to flip</p>
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              className="flex-1"
+                              disabled={flashcardIndex === 0}
+                              onClick={() => {
+                                setFlashcardIndex((prev) => prev - 1);
+                                setShowFlashcardBack(false);
+                              }}
+                            >
+                              Previous
+                            </Button>
+                            <Button
+                              className="flex-1"
+                              disabled={flashcardIndex === session.generated_flashcards.length - 1}
+                              onClick={() => {
+                                setFlashcardIndex((prev) => prev + 1);
+                                setShowFlashcardBack(false);
+                              }}
+                            >
+                              Next
+                            </Button>
+                          </div>
+                        </>
+                      );
+                    })()
                   ) : (
                     <p className="text-sm text-muted-foreground">No flashcards generated.</p>
                   )}

@@ -16,7 +16,6 @@ const MENU_ITEMS = [
   { label: 'Learning', href: '/learning' },
   { label: 'Lecture Notes', href: '/lecture-notes' },
   { label: 'Quizzes', href: '/quizzes' },
-  { label: 'Flash cards', href: '/flash-cards' },
 ];
 
 export function PublicShell({ title, subtitle, children, rightSlot }: PublicShellProps) {

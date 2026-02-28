@@ -22,6 +22,11 @@ export default function DashboardPage() {
   const { profile, loading: profileLoading } = useProfile(user?.id || null);
   const [lectureSessions, setLectureSessions] = useState<any[]>([]);
   const [revisionTimeLogs, setRevisionTimeLogs] = useState<any[]>([]);
+  const [batchDeleteMode, setBatchDeleteMode] = useState(false);
+  const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
+  const [showDeleteWarning, setShowDeleteWarning] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   const revisionChart = useMemo(() => {
     const days = 7;
@@ -70,51 +75,99 @@ export default function DashboardPage() {
   }, [revisionTimeLogs]);
 
   const lectureCards = useMemo(() => {
-    const cards = lectureSessions.slice(0, 4).map((session) => ({
+    return lectureSessions.map((session) => ({
       sessionId: session.id,
       label: session.lecture_title || 'Untitled Lecture',
       value: `${(session.generated_quizzes || []).length} quizzes`,
       note: `${(session.generated_flashcards || []).length} flashcards generated`,
       sub: `Created ${new Date(session.created_at).toLocaleDateString()}`,
     }));
-
-    while (cards.length < 4) {
-      cards.push({
-        sessionId: null,
-        label: 'No lecture yet',
-        value: '0 quizzes',
-        note: 'Create a lecture using Quick Create',
-        sub: 'Saved sessions from Supabase will appear here',
-      });
-    }
-
-    return cards;
   }, [lectureSessions]);
+
+  const allSelected = lectureCards.length > 0 && selectedSessionIds.length === lectureCards.length;
+
+  const toggleSessionSelection = (sessionId: string) => {
+    setSelectedSessionIds((prev) =>
+      prev.includes(sessionId) ? prev.filter((id) => id !== sessionId) : [...prev, sessionId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (allSelected) {
+      setSelectedSessionIds([]);
+      return;
+    }
+    setSelectedSessionIds(lectureCards.map((lecture) => lecture.sessionId));
+  };
+
+  const handleToggleBatchDeleteMode = () => {
+    if (batchDeleteMode) {
+      setBatchDeleteMode(false);
+      setSelectedSessionIds([]);
+      setShowDeleteWarning(false);
+      setActionError('');
+      return;
+    }
+    setBatchDeleteMode(true);
+  };
+
+  const fetchSessionData = async () => {
+    if (!user?.id) return;
+
+    try {
+      const [sessionsRes, revisionTimeRes] = await Promise.all([
+        fetch(`/api/quick-create?userId=${user.id}`),
+        fetch(`/api/revision-time?userId=${user.id}`),
+      ]);
+
+      if (sessionsRes.ok) {
+        const sessions = await sessionsRes.json();
+        setLectureSessions(Array.isArray(sessions) ? sessions : []);
+      }
+
+      if (revisionTimeRes.ok) {
+        const revisionLogs = await revisionTimeRes.json();
+        setRevisionTimeLogs(Array.isArray(revisionLogs) ? revisionLogs : []);
+      }
+    } catch (error) {
+      console.warn('Failed to fetch dashboard session data:', error);
+    }
+  };
+
+  const confirmDeleteSelected = async () => {
+    if (!user?.id || selectedSessionIds.length === 0) return;
+
+    setDeleting(true);
+    setActionError('');
+
+    try {
+      const response = await fetch('/api/quick-create', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          sessionIds: selectedSessionIds,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete selected lectures.');
+      }
+
+      setSelectedSessionIds([]);
+      setShowDeleteWarning(false);
+      setBatchDeleteMode(false);
+      await fetchSessionData();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Failed to delete selected lectures.');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     if (!user?.id) return;
-
-    const fetchSessionData = async () => {
-      try {
-        const [sessionsRes, revisionTimeRes] = await Promise.all([
-          fetch(`/api/quick-create?userId=${user.id}`),
-          fetch(`/api/revision-time?userId=${user.id}`),
-        ]);
-
-        if (sessionsRes.ok) {
-          const sessions = await sessionsRes.json();
-          setLectureSessions(Array.isArray(sessions) ? sessions : []);
-        }
-
-        if (revisionTimeRes.ok) {
-          const revisionLogs = await revisionTimeRes.json();
-          setRevisionTimeLogs(Array.isArray(revisionLogs) ? revisionLogs : []);
-        }
-      } catch (error) {
-        console.warn('Failed to fetch dashboard session data:', error);
-      }
-    };
-
     fetchSessionData();
   }, [user?.id]);
 
@@ -227,15 +280,48 @@ export default function DashboardPage() {
         <main className="w-full p-4 lg:p-5">
           <div className="rounded-xl border bg-card">
             <div className="flex items-center justify-between border-b px-4 py-3 sm:px-6">
-              <h1 className="text-sm font-medium sm:text-base">Dashboards</h1>
-              <div className="text-sm text-muted-foreground">???</div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-sm font-medium sm:text-base">Dashboards</h1>
+                <Button variant="outline" size="sm" onClick={handleToggleBatchDeleteMode}>
+                  {batchDeleteMode ? 'Cancel Batch Delete' : 'Batch Delete'}
+                </Button>
+              </div>
+              {batchDeleteMode ? (
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-muted-foreground">{selectedSessionIds.length} selected</p>
+                  <Button variant="outline" size="sm" onClick={handleSelectAll}>
+                    {allSelected ? 'Unselect All' : 'Select All'}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setShowDeleteWarning(true)}
+                    disabled={selectedSessionIds.length === 0}
+                  >
+                    Delete Selected
+                  </Button>
+                </div>
+              ) : (
+                <div />
+              )}
             </div>
 
             <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {lectureCards.map((lecture, index) => (
-                  <Card key={`${lecture.label}-${index}`} className="rounded-xl shadow-none">
-                    {lecture.sessionId ? (
+              {lectureCards.length > 0 ? (
+                <>
+                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  {lectureCards.map((lecture) => (
+                    <Card key={lecture.sessionId} className="relative rounded-xl shadow-none">
+                      {batchDeleteMode ? (
+                        <label className="absolute right-3 top-3 z-10 inline-flex items-center rounded-md bg-background/80 p-1">
+                          <input
+                            type="checkbox"
+                            checked={selectedSessionIds.includes(lecture.sessionId)}
+                            onChange={() => toggleSessionSelection(lecture.sessionId)}
+                            className="h-4 w-4 rounded border border-black accent-black"
+                          />
+                        </label>
+                      ) : null}
                       <Link href={`/lecture-notes/${lecture.sessionId}`} className="block rounded-xl transition-colors hover:bg-muted/30">
                         <CardHeader className="space-y-2 p-4">
                           <CardDescription className="text-lg font-semibold text-foreground">{lecture.label}</CardDescription>
@@ -246,21 +332,17 @@ export default function DashboardPage() {
                           <p className="text-muted-foreground">{lecture.sub}</p>
                         </CardContent>
                       </Link>
-                    ) : (
-                      <>
-                        <CardHeader className="space-y-2 p-4">
-                          <CardDescription className="text-lg font-semibold text-foreground">{lecture.label}</CardDescription>
-                          <CardTitle className="text-base font-medium tracking-normal text-muted-foreground">{lecture.value}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-1 p-4 pt-0 text-sm">
-                          <p className="font-medium">{lecture.note}</p>
-                          <p className="text-muted-foreground">{lecture.sub}</p>
-                        </CardContent>
-                      </>
-                    )}
-                  </Card>
-                ))}
-              </div>
+                    </Card>
+                  ))}
+                </div>
+                </>
+              ) : (
+                <Card className="rounded-xl shadow-none">
+                  <CardContent className="p-4 text-sm text-muted-foreground">
+                    No lecture yet. Create a lecture using Quick Create.
+                  </CardContent>
+                </Card>
+              )}
 
               <Card className="rounded-xl shadow-none">
                 <CardHeader className="flex flex-row items-start justify-between gap-3 p-4">
@@ -293,6 +375,40 @@ export default function DashboardPage() {
               </Card>
             </div>
           </div>
+
+          {showDeleteWarning && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <Card className="w-full max-w-md border-red-300">
+                <CardHeader>
+                  <CardTitle className="text-red-700">Warning</CardTitle>
+                  <CardDescription className="text-red-700">
+                    Deleting selected lectures cannot be reverted.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {actionError ? <p className="text-sm text-red-700">{actionError}</p> : null}
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowDeleteWarning(false)}
+                      disabled={deleting}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={confirmDeleteSelected}
+                      disabled={deleting}
+                    >
+                      {deleting ? 'Deleting...' : 'Confirm Delete'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </main>
       </div>
     </div>

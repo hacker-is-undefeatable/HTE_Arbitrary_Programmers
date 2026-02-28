@@ -13,26 +13,47 @@ export default function RevisionPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'overdue' | 'today'>('all');
   const startTimeRef = useRef<number>(Date.now());
+  const lastFlushedAtRef = useRef<number>(0);
+
+  const flushRevisionTimeLog = (userId: string | undefined | null) => {
+    if (!userId) return;
+
+    const endTime = Date.now();
+    const durationSeconds = Math.floor((endTime - startTimeRef.current) / 1000);
+
+    if (durationSeconds < 15) return;
+    if (endTime - lastFlushedAtRef.current < 1000) return;
+
+    lastFlushedAtRef.current = endTime;
+
+    void fetch('/api/revision-time', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId,
+        durationSeconds,
+        startedAt: new Date(startTimeRef.current).toISOString(),
+        endedAt: new Date(endTime).toISOString(),
+      }),
+      keepalive: true,
+    });
+
+    startTimeRef.current = endTime;
+  };
 
   useEffect(() => {
     startTimeRef.current = Date.now();
 
+    const handlePageHide = () => flushRevisionTimeLog(user?.id);
+    const handleBeforeUnload = () => flushRevisionTimeLog(user?.id);
+
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     return () => {
-      const endTime = Date.now();
-      const durationSeconds = Math.floor((endTime - startTimeRef.current) / 1000);
-
-      if (!user?.id || durationSeconds < 15) return;
-
-      void fetch('/api/revision-time', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          durationSeconds,
-          startedAt: new Date(startTimeRef.current).toISOString(),
-          endedAt: new Date(endTime).toISOString(),
-        }),
-      });
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      flushRevisionTimeLog(user?.id);
     };
   }, [user?.id]);
 

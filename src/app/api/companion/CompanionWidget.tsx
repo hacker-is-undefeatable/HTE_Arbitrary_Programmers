@@ -192,7 +192,7 @@ export default function CompanionWidget() {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className="fixed bottom-5 right-0 z-50">
       {open ? (
         <Card className="mb-3 flex h-[470px] w-[360px] flex-col overflow-hidden border shadow-xl">
           <div className="flex items-center justify-between border-b px-4 py-3">

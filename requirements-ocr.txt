@@ -1,0 +1,4 @@
+# OCR dependencies for scanned PDF text extraction
+pdf2image>=1.17.0
+pytesseract>=0.3.10
+Pillow>=10.0.0

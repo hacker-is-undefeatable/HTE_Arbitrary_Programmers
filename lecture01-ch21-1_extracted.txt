@@ -1,0 +1,307 @@
+--- Page 1 ---
+Here is the extracted text and equations from the provided page:
+
+---
+
+**Ch 21 Electric Field and Electric Forces I**
+
+**Intended Learning Outcomes – after this lecture you will learn:**
+1. Electric charge in real life
+2. Electric force between point charges (Coulomb’s law)
+3. Electric field due to a point charge  
+**Textbook Reference: 21.2 – 21.3**
+
+---
+
+**Why is E&M important?** — most relevant to everyday life (from mechanical forces to biological processes) among the four fundamental interactions  
+**The four fundamental forces:**
+
+| Force           | Relative strength | Range (meter) | Responsible for                              |
+|-----------------|------------------|---------------|----------------------------------------------|
+| Strong          | $10^{38}$        | $10^{-15}$    | Binding quarks into hadrons, and neutrons and protons in nuclei |
+| Electromagnetic | $10^{36}$        | $\infty$      |                                              |
+| Weak            | $10^{25}$        | $10^{-18}$    | Transforming neutron into proton in nuclear decay |
+| Gravitation     | 1                | $\infty$      |                                              |
+
+---
+
+**Some simple factors from high school physics:**
+
+**Origin of charge from atoms**
+
+- **Proton:** Positive charge  
+  Mass $= 1.673 \times 10^{-27} \text{ kg}$
+  
+- **Neutron:** No charge  
+  Mass $= 1.675 \times 10^{-27} \text{ kg}$
+  
+- **Electron:** Negative charge  
+  Mass $= 9.109 \times 10^{-31} \text{ kg}$
+
+The charges of the electron and proton are equal in magnitude.
+
+---
+
+A conductor permits easy movement of charge through it, while an insulator does not.
+
+---
+
+**PHYS1114 Lecture 1 Electric Field and Electric Forces I P. 1**
+
+--- Page 2 ---
+Here is the extracted text and equations from the page:
+
+---
+
+**Charge by rubbing (insulators)**
+
+(a) Interaction between plastic rods rubbed on fur  
+Plain plastic rods neither attract nor repel each other ...  
+... but after being rubbed with fur, the rods repel each other.
+
+(b) Interaction between glass rods rubbed on silk  
+Plain glass rods neither attract nor repel each other ...  
+... but after being rubbed with silk, the rods repel each other.
+
+(c) Interaction between objects with opposite charges  
+The fur-rubbed plastic rod and the silk-rubbed glass rod attract each other ...
+
+---
+
+**Charge by induction (conductors)**
+
+(a) Uncharged metal ball  
+(b) Negative charge on rod repels electrons, creating zones of negative and positive charge.  
+(c) Wire lets electron buildup (induced negative charge) flow into ground.  
+(d) Wire removed; ball now has only an electron-deficient region of positive charge.  
+(e) Rod removed; electrons rearrange themselves, ball has overall electron deficiency (net positive charge).
+
+---
+
+**Real Life Examples**  
+**Combing hair in winter**  
+
+(a) How a negatively charged comb attracts an insulator  
+Electrons in each molecule of the neutral insulator shift away from the comb.  
+As a result, the $(+)$ charges in each molecule are closer to the comb than the $(−)$ charges and so feel a stronger force from the comb. Therefore the net force is attractive.
+
+(b) How a positively charged comb attracts an insulator  
+This time, electrons in the molecules shift toward the comb ...  
+... so that the $(−)$ charges in each molecule are closer to the comb, and feel a stronger force from it than the $(+)$ charges. Again, the net force is attractive.
+
+---
+
+PHYS1114 Lecture 1 Electric Field and Electric Forces I  P. 2
+
+--- Page 3 ---
+Here is the extracted text and equations from the provided page:
+
+---
+
+**Laser printing**
+1. Laser beam "writes" on the drum, leaving negatively charged areas where the image will be.
+2. Wire sprays ions onto drum, giving the drum a positive charge.
+3. Roller applies positively charged toner to drum. Toner adheres only to negatively charged areas of the drum "written" by the laser.
+4. Wires spray a stronger negative charge on paper so toner will adhere to it.
+
+**Electrostatic painting**
+
+Minimizes overspray and gives a smooth finish.
+
+**Question:** Two metal balls, one charged and one neutral, hanging on insulating threads. If they are close to each other but not touching, they will (attract / repel / ignore) each other. Once they touch, they will (attract / repel / ignore) each other.  
+**Answer:** see inverted text on P. 712.
+
+**Two very important facts about charges:**
+1. Principle of conservation of charge – the algebraic sum of all the electric charges in any closed system (no charge can escape) is constant.
+2. Electron charge is the fundamental (cannot be further divided) unit of charge  
+   $$ e = 1.602176565(35) \times 10^{-19} \, \text{C} $$
+
+**Demonstration:** Van de Graaf generator
+
+---
+
+**PHYS1114 Lecture 1 Electric Field and Electric Forces I**  
+**P. 3**
+
+--- Page 4 ---
+Here’s the extracted text and equations from the page:
+
+---
+
+**Coulomb’s Law**
+
+Magnitude of electric force between two point charges
+
+$$
+F = \frac{1}{4\pi \epsilon_0} \frac{|q_1 q_2|}{r^2}
+$$
+
+**Vacuum permittivity**
+
+$$
+\epsilon_0 = 8.854 \times 10^{-12} \, \text{C}^2/\text{N}\cdot\text{m}^2
+$$
+
+$$
+\frac{1}{4\pi \epsilon_0} = 8.988 \times 10^9 \, \text{N}\cdot\text{m}^2/\text{C}^2
+$$
+
+**Warning**: Two 1 C charge at 1 m apart exert a force of $9 \times 10^9$ N on each other! 1 C is a huge amount of electric charge!
+
+Very much like gravitation, 
+
+$$
+F = G \frac{m_1 m_2}{r^2}
+$$
+
+but much stronger.
+
+E.g. two helium nuclei (He$^{2+}, \, m = 6.64 \times 10^{-27} \, \text{kg}$ and $q = 3.2 \times 10^{-19} \, \text{C}$), ratio of electric to gravitational force is
+
+$$
+\frac{F_e}{F_g} = \frac{1}{4\pi \epsilon_0} \frac{|q_1 q_2|}{r^2} \cdot \frac{G m_1 m_2}{r^2} = 3.1 \times 10^{35}
+$$
+
+**Example 21.4 P. 717 Vector Addition of Electric Forces in a Plane**
+
+Two equal positive charges $q_1 = q_2 = 2.0 \, \mu\text{C}$ are located at $x = 0, \, y = 0.30 \, \text{m}$ and $x = 0, \, y = -0.30 \, \text{m}$. Find the total electric force experienced by a charge $Q = 4.0 \, \mu\text{C}$ at $x = 0.40 \, \text{m}$ and $y = 0$?
+
+By symmetry, $F_y = 0$
+
+$$
+F_x = 2 \cdot \frac{1}{4\pi \epsilon_0} \frac{|Q q_1|}{r^2} \cos \alpha
+$$
+
+$$
+= 2 \cdot (9.0 \times 10^9 \, \text{Nm}^2/\text{C}^2) \cdot (4.0 \times 10^{-6} \, \text{C}) \cdot (2.0 \times 10^{-6} \, \text{C}) \cdot \frac{(0.40 \, \text{m})}{(0.50 \, \text{m})^2} = \ldots \, \text{N}
+$$
+
+**Warning**: be careful about the precision!
+
+**Question:** If $q_2 = -2.0 \, \mu\text{C}$ instead, the total force on $Q$ will be (along x direction / along - x direction / along y direction / along - y direction / zero / none of these).
+
+Answer: see inverted text on P. 718
+
+---
+
+This includes all the text and mathematical equations formatted in LaTeX.
+
+--- Page 5 ---
+Here is the extracted text and equations from the provided page:
+
+---
+
+⚠️ Q feels the charge due to other charges ($q_1$ and $q_2$) only, never its own charge.  
+⚠️ If charge Q changed, just substitute a new value into the above formula. Did $q_1$ and $q_2$ set up something independent of charge Q? Yes, they set up an electric field.
+
+### Electric Field due to a Point Charge
+Always radially outward (for +ve charge) or inward (for –ve charge)
+
+- (a) The field produced by a positive point charge
+- (b) The field produced by a negative point charge
+
+$$ \mathbf{E} = \frac{\mathbf{F}}{q_0} $$
+
+**Electric field**  
+electric force  
+per unit charge
+
+**Value of test charge**  
+$$\mathbf{E} = \frac{1}{4 \pi \epsilon_0} \frac{q}{r^2} \hat{\mathbf{r}} \quad (21.7)$$
+
+- $ \hat{\mathbf{r}} $ is always pointing radially outwards  
+- $ q $ can be +ve/-ve
+
+---
+
+This captures all text and equations in LaTeX format as requested.
+
+--- Page 6 ---
+Here's the extracted text and equations from the provided page:
+
+---
+
+**Example 21.6 P. 721**
+
+A point charge \( q = -0.8 \, \text{nC} \) placed at the origin. The electric field at \( x = 1.2 \, \text{m} \) and \( y = -1.6 \, \text{m} \) is:
+
+**EXECUTE:** The distance from \( S \) to \( P \) is 
+\[
+r = \sqrt{x^2 + y^2} = \sqrt{(1.2 \, \text{m})^2 + (-1.6 \, \text{m})^2} = 2.0 \, \text{m}
+\]
+
+The unit vector \( \hat{r} \) is then
+\[
+\hat{r} = \frac{\mathbf{r}}{r} = \frac{x \hat{i} + y \hat{j}}{r} = \frac{(1.2 \, \text{m}) \hat{i} + (-1.6 \, \text{m}) \hat{j}}{2.0 \, \text{m}} = (0.60 \hat{i} - 0.80 \hat{j})
+\]
+
+Then, from Eq. (21.7),
+\[
+\mathbf{E} = \frac{1}{4 \pi \epsilon_0} \frac{q}{r^2}
+\]
+\[
+= \left(9.0 \times 10^9 \, \text{N} \cdot \text{m}^2/\text{C}^2\right)\left(-8.0 \times 10^{-9} \, \text{C}\right)\left(\frac{1}{(2.0 \, \text{m})^2}\right)
+\]
+\[
+= (-11 \, \text{N/C}) \hat{i} + (14 \, \text{N/C}) \hat{j}
+\]
+
+**Question:** A negative point charge moves along a circular orbit about a stationary positive point charge. The (magnitude / direction / magnitude and direction / neither magnitude nor direction) of the electric force on the negative charge will remain unchanged. Answer: see inverted text on P. 722.
+
+---
+
+**PHYS1114 Lecture 1 Electric Field and Electric Forces I P. 6**
+
+--- Page 7 ---
+Here's the extracted text and equations in LaTeX format:
+
+---
+
+**Clicker Questions**
+
+**Q21.3**  
+Three point charges lie at the vertices of an equilateral triangle as shown. All three charges have the same magnitude, but charges #1 and #2 are positive ($+q$) and charge #3 is negative ($-q$). The net electric force that charges #2 and #3 exert on charge #1 is in  
+
+A. the +$x$-direction.  
+B. the -$x$-direction.  
+C. the +$y$-direction.  
+D. the -$y$-direction.  
+E. none of the above.
+
+**Q21.5**  
+A positive point charge $+Q$ is released from rest in an electric field. At any later time, the velocity of the point charge  
+
+A. is in the direction of the electric field at the position of the point charge.  
+B. is directly opposite the direction of the electric field at the position of the point charge.  
+C. is perpendicular to the direction of the electric field at the position of the point charge.  
+D. is zero.  
+E. Not enough information is given to decide.
+
+---
+
+**PHYS1114 Lecture 1 Electric Field and Electric Forces I P. 7**
+
+--- Page 8 ---
+Here is the extracted text and equations from the image:
+
+---
+
+**Q21.6**  
+Two point charges and a point \( P \) lie at the vertices of an equilateral triangle as shown. Both point charges have the same magnitude \( q \) but opposite signs. There is nothing at point \( P \). The net electric field that charges #1 and #2 produce at point \( P \) is in
+
+A. the +\( x \)-direction.  
+B. the -\( x \)-direction.  
+C. the +\( y \)-direction.  
+D. the -\( y \)-direction.  
+E. none of the above.
+
+**Ans:** Q21.3) D, Q21.5) E, Q21.6) C
+
+---
+
+The equations in this excerpt are represented as follows:
+
+- Point \( P \) is indicated.
+- Charges have magnitude \( q \).
+
+No specific mathematical equations were present in the original text to convert to LaTeX format beyond basic variables and symbols.

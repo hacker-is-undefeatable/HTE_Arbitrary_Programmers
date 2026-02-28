@@ -1,0 +1,207 @@
+--- Page 1 (native text) ---
+PHYS1114 Lecture 1 Electric Field and Electric Forces I 
+P. 1 
+ 
+CH 21 ELECTRIC FIELD AND ELECTRIC FORCES I 
+Intended Learning Outcomes – after this lecture you will learn: 
+1. Electric charge in real life 
+2. Electric force between point charges (Coulomb’s law) 
+3. Electric field due to a point charge 
+Textbook Reference: 21.2 – 21.3 
+ 
+ 
+ 
+Why is E&M important?—most relevant to everyday life (from mechanical forces to biological 
+processes) among the four fundamental interactions 
+The four fundamental forces: 
+ 
+Relative strength 
+Range (meter) 
+Responsible for 
+Strong 
+1038 
+10−15 
+Binding quarks into 
+hadrons, and neutrons 
+and protons in nuclei 
+Electromagnetic 
+1036  
+∞ 
+ 
+ 
+Weak 
+1025 
+10−18 
+Transforming neutron 
+into proton in nuclear 
+decay 
+Gravitation 
+1 
+∞ 
+ 
+ 
+Some simple factors from high school physics: 
+Origin of charge from atoms 
+ 
+ 
+A conductor permits easy movement of charge through it, while an insulator does not
+
+--- Page 2 (native text) ---
+PHYS1114 Lecture 1 Electric Field and Electric Forces I 
+P. 2 
+ 
+Charge by rubbing (insulators) 
+ 
+Charge by induction (conductors) 
+ 
+ 
+Real Life Examples 
+Combing hair in winter
+
+--- Page 3 (native text) ---
+PHYS1114 Lecture 1 Electric Field and Electric Forces I 
+P. 3 
+ 
+Laser printing 
+ 
+ 
+Electrostatic painting 
+ 
+ 
+Question: Two metal balls, one charged and one neutral, hanging on insulating threads.  
+If they are close to each other but not touching, they will (attract / repel / ignore) each other. 
+Once they touch, they will (attract / repel / ignore) each other. 
+Answer: see inverted text on P. 712. 
+ 
+Two very important facts about charges: 
+1. Principle of conservation of charge – the algebraic sum of all the electric charges in any 
+closed system (no charge can escape) is constant. 
+2. Electron charge is the fundamental (cannot be further divided) unit of charge 
+𝑒𝑒= 1.602176565(35) × 10−19 C 
+ 
+Demonstration: Van de Graaf generator  
+Raising hair   
+Bouncing Balloon   
+ Lightning 
+ 
+Minimizes overspray and gives a smooth 
+finish
+
+--- Page 4 (native text) ---
+PHYS1114 Lecture 1 Electric Field and Electric Forces I 
+P. 4 
+ 
+Coulomb’s Law 
+ 
+Very much like gravitation, 𝐹𝐹= 𝐺𝐺𝑚𝑚1𝑚𝑚2/𝑟𝑟2, but much stronger 
+E.g. two helium nuclei (He2+, 𝑚𝑚= 6.64 × 10−27 kg and 𝑞𝑞= 3.2 × 10−19 C), ratio of electric to 
+gravitational force is 
+𝐹𝐹𝑒𝑒
+𝐹𝐹𝑔𝑔
+=
+1
+4𝜋𝜋𝜖𝜖0
+|𝑞𝑞1𝑞𝑞2|
+𝑟𝑟2
+𝐺𝐺𝑚𝑚1𝑚𝑚2
+𝑟𝑟2
+= 3.1 × 1035 
+ 
+Example 21.4 P. 717 Vector Addition of Electric Forces in a Plane 
+Two equal positive charges 𝑞𝑞1 = 𝑞𝑞2 = 2.0 𝜇𝜇C are located at 𝑥𝑥= 0, 𝑦𝑦= 0.30 m and 𝑥𝑥= 0, 𝑦𝑦=
+−0.30 m respectively. Find the total electric force experienced by a charge 𝑄𝑄= 4.0 𝜇𝜇C at 𝑥𝑥=
+0.40 m and 𝑦𝑦= 0? 
+ 
+Question: If 𝑞𝑞2 = −2.0 𝜇𝜇C instead, the total force on 𝑄𝑄 will be (along 𝑥𝑥 direction / along – 𝑥𝑥 
+direction / along 𝑦𝑦 direction / along – 𝑦𝑦 direction / zero / none of these). 
+Answer: see inverted text on P. 718 
+ 
+Magnitude of electric force between 
+two point charges 
+𝐹𝐹=
+1
+4𝜋𝜋𝜖𝜖0
+|𝑞𝑞1𝑞𝑞2|
+𝑟𝑟2
+ 
+Vacuum permittivity  
+ 
+𝜖𝜖0 = 8.854 × 10−12 C2/N·m2 
+1
+4𝜋𝜋𝜖𝜖0 = 8.988 × 109 N·m2/C2  
+ 
+ Two 1 C charge at 1m apart exert a 
+force of 9 × 109 N on each other! 1 C 
+is a huge amount of electric charge! 
+By symmetry, 𝐹𝐹𝑦𝑦= 0 
+𝐹𝐹𝑥𝑥= 2
+1
+4𝜋𝜋𝜖𝜖0
+|𝑄𝑄𝑄𝑄1|
+𝑟𝑟2
+cos 𝛼𝛼 
+= 2(9.0 × 109 Nm2/C2) 
+×
+(4.0 × 10−6 C)(2.0 × 10−6 C)
+(0.50 m)2
+ 
+× 0.40 m
+0.50 m = ___________N 
+ be careful about the precision!
+
+--- Page 5 (native text) ---
+PHYS1114 Lecture 1 Electric Field and Electric Forces I 
+P. 5 
+ 
+ 
+ 𝑄𝑄 feels the charge due to other charges (𝑞𝑞1 and 𝑞𝑞2) only, never its own charge 
+ If charge 𝑄𝑄 changed, just substitute a new value into above formula. Did 𝑞𝑞1 and 𝑞𝑞2 set up 
+something independent of charge 𝑄𝑄? Yes, they set up an electric field. 
+ 
+ 
+Electric Field due to a Point Charge 
+Always radially outward (for +ve charge) or inward (for –ve charge) 
+ 
+ 
+ 𝒓𝒓ො is always pointing radially outwards 
+ q can be +ve/-ve.
+
+--- Page 6 (native text) ---
+PHYS1114 Lecture 1 Electric Field and Electric Forces I 
+P. 6 
+ 
+ 
+Example 21.6 P. 721 
+A point charge 𝑞𝑞= −0.8 nC placed at the origin. The electric field at 𝑥𝑥= 1.2 m and 𝑦𝑦= −1.6 
+m is 
+ 
+ 
+Question: A negative point charge moves along a circular orbit about a stationary positive point 
+charge. The ( magnitude / direction / magnitude and direction / neither magnitude nor direction) 
+of the electric force on the negative charge will remain unchanged. 
+Answer: see inverted text on P. 722
+
+--- Page 7 (native text) ---
+PHYS1114 Lecture 1 Electric Field and Electric Forces I 
+P. 7 
+ 
+Clicker Questions
+
+--- Page 8 (native text) ---
+PHYS1114 Lecture 1 Electric Field and Electric Forces I 
+P. 8 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Ans: Q21.3) D, Q21.5) E, Q21.6) C

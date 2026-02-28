@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 export default function QuizzesPage() {
   return (
     <AppShell title="Quizzes" subtitle="Take assessments and topic quizzes">
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle>Learning Quizzes</CardTitle>
@@ -32,6 +32,20 @@ export default function QuizzesPage() {
             </Link>
             <Link href="/learn/python" className="block">
               <Button variant="outline" className="w-full">Python Quiz Practice</Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Adaptive Quiz Engine</CardTitle>
+            <CardDescription>
+              5-round, AI-style adaptive sessions for Math and AI.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/quizzes/adaptive">
+              <Button className="w-full">Open Adaptive Quiz</Button>
             </Link>
           </CardContent>
         </Card>

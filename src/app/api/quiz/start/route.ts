@@ -6,6 +6,7 @@ import {
   getServer,
   updateServer,
   saveQuizContent,
+  addParticipant,
 } from '@/utils/quizPartyStore';
 
 const rateLimitMap = new Map<string, number[]>();
@@ -233,10 +234,23 @@ export async function POST(request: NextRequest) {
       started_at: new Date().toISOString(),
     });
 
+    // Always add the host as their own participant when starting, so the host always counts as one player.
+    // (If we reused an existing participant by user_id, two tabs from the same user would share one participant.)
+    const hostDisplayName = typeof body.host_display_name === 'string' ? body.host_display_name.trim() : null;
+    const host = await addParticipant({
+      serverId,
+      userId: server.host_user_id,
+      displayName: hostDisplayName || 'Host',
+      guest: !server.host_user_id,
+      guestTagDataUri: null,
+    });
+    const hostParticipantId = host.id;
+
     return NextResponse.json({
       quiz_id: quizId,
       server_id: serverId,
       question_count: questions.length,
+      participant_id: hostParticipantId,
     });
   } catch (e) {
     console.error('Quiz start error:', e);

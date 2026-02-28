@@ -3,6 +3,8 @@ import {
   isQuizPartyStoreConfigured,
   getServer,
   getQuizContent,
+  listParticipants,
+  getAnsweredCountForQuestion,
 } from '@/utils/quizPartyStore';
 
 export async function GET(request: NextRequest) {
@@ -33,12 +35,20 @@ export async function GET(request: NextRequest) {
     let totalQuestions = 0;
     let currentQuestion: Record<string, unknown> | null = null;
 
+    let participantCount = 0;
+    let answeredCount = 0;
+
     if (server.status === 'active' || server.status === 'ended') {
       const quiz = await getQuizContent(serverId);
+      const participants = await listParticipants(serverId, true);
+      participantCount = participants.length;
+      const idx = Math.min(server.current_question_index, (quiz?.question_count ?? 1) - 1);
+      if (idx >= 0 && participantCount > 0) {
+        answeredCount = await getAnsweredCountForQuestion(serverId, idx);
+      }
       if (quiz) {
         quizId = quiz.quiz_id;
         totalQuestions = quiz.question_count;
-        const idx = Math.min(server.current_question_index, totalQuestions - 1);
         if (idx >= 0 && totalQuestions > 0 && quiz.questions[idx]) {
           const q = quiz.questions[idx]!;
           currentQuestion = {
@@ -61,6 +71,8 @@ export async function GET(request: NextRequest) {
       total_questions: totalQuestions,
       quiz_id: quizId,
       current_question: currentQuestion,
+      participant_count: participantCount,
+      answered_count: answeredCount,
     });
   } catch (e) {
     console.error('Quiz status error:', e);

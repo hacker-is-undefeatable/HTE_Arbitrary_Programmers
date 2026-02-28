@@ -289,8 +289,8 @@ export async function addParticipant(params: {
   };
 }
 
-/** List participants for a server, ordered by score desc. */
-export async function listParticipants(serverId: string): Promise<QuizParticipant[]> {
+/** List participants for a server, ordered by score desc. Use consistentRead: true for leaderboard so scores are up to date. */
+export async function listParticipants(serverId: string, consistentRead?: boolean): Promise<QuizParticipant[]> {
   const table = getTableName();
   const client = getClient();
 
@@ -302,6 +302,7 @@ export async function listParticipants(serverId: string): Promise<QuizParticipan
         ':pk': `SERVER#${serverId}`,
         ':sk': 'PARTICIPANT#',
       }),
+      ConsistentRead: consistentRead === true,
     })
   );
 
@@ -324,6 +325,25 @@ export async function listParticipants(serverId: string): Promise<QuizParticipan
 export async function getParticipantCount(serverId: string): Promise<number> {
   const list = await listParticipants(serverId);
   return list.length;
+}
+
+/** Count how many participants have answered the current question. Use consistent read for accurate count. */
+export async function getAnsweredCountForQuestion(serverId: string, questionIndex: number, consistentRead = true): Promise<number> {
+  const table = getTableName();
+  const client = getClient();
+  const skPrefix = `ANSWER#${questionIndex}#`;
+  const res = await client.send(
+    new QueryCommand({
+      TableName: table,
+      KeyConditionExpression: 'pk = :pk AND begins_with(sk, :sk)',
+      ExpressionAttributeValues: marshall({
+        ':pk': `SERVER#${serverId}`,
+        ':sk': skPrefix,
+      }),
+      ConsistentRead: consistentRead,
+    })
+  );
+  return (res.Items ?? []).length;
 }
 
 /** Save quiz content (after generation). */

@@ -72,7 +72,18 @@ To add **real-time updates** (e.g. push when the host advances the question):
 
 Lambda and API Gateway setup is not included in this repo; use the AWS Console or IaC (SAM/CloudFormation/CDK) to create the WebSocket API and Lambda, and point the client at the resulting URL.
 
-## 5. Summary
+## 5. Host and players must use the same app (same URL)
+
+Quiz Party state lives on **one** backend (the server that has AWS configured and where the host created the game). Join requests go to **whatever URL the player has open in the browser**.
+
+- **If your friend runs `npm run dev` on their laptop** and opens `http://localhost:3000`, their join request hits **their** server. That server has no AWS credentials and no access to your quiz → they get "Quiz party store (AWS DynamoDB) is not configured."
+- **Fix:** Everyone must use the **same** app instance:
+  - **Option A (recommended):** Deploy the app (e.g. Vercel), add `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_REGION` in the deployment environment, then **both** host and friend open the **deployed URL** (e.g. `https://your-app.vercel.app`). Create and join from that URL.
+  - **Option B:** You run `npm run dev` and expose it (e.g. [ngrok](https://ngrok.com): `ngrok http 3000`). Share the ngrok URL with your friend. Your friend opens **that URL** in their browser (they do **not** run the app locally) and joins with your code.
+
+Do not give your friend the repo and have them run the app locally to join your game; their local server is a different backend with no DynamoDB and no quiz state.
+
+## 6. Summary
 
 | What            | Before     | After        |
 |-----------------|-----------|-------------|

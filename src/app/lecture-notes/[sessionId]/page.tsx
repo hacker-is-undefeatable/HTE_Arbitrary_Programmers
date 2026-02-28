@@ -38,15 +38,17 @@ const CODE_REGEX = /^[A-Za-z0-9]*$/;
 function QuizPartyModal({
   open,
   onClose,
-  sessionId,
+  sessionId = '',
   sessionTitle,
   userId,
+  joinOnly = false,
 }: {
   open: boolean;
   onClose: () => void;
-  sessionId: string;
+  sessionId?: string;
   sessionTitle: string;
   userId: string | null;
+  joinOnly?: boolean;
 }) {
   const [step, setStep] = useState<'config' | 'lobby' | 'join' | 'playing' | 'ended'>('config');
   const [mode, setMode] = useState<'host' | 'join'>('host');
@@ -62,7 +64,13 @@ function QuizPartyModal({
   const [isGuest, setIsGuest] = useState(false);
   const [leaderboard, setLeaderboard] = useState<Array<{ display_name: string; guest: boolean; guest_tag_data_uri?: string; score: number }>>([]);
   const [quizId, setQuizId] = useState<string | null>(null);
-  const [status, setStatus] = useState<{ current_question_index: number; total_questions: number; current_question?: { question_text: string; choices: string[]; question_index: number } } | null>(null);
+  const [status, setStatus] = useState<{
+    current_question_index: number;
+    total_questions: number;
+    current_question?: { question_text: string; choices: string[]; question_index: number };
+    participant_count?: number;
+    answered_count?: number;
+  } | null>(null);
   const [answerSent, setAnswerSent] = useState(false);
   const [explanation, setExplanation] = useState<string | null>(null);
   const [correctAnswerText, setCorrectAnswerText] = useState<string | null>(null);
@@ -71,10 +79,44 @@ function QuizPartyModal({
   const [loading, setLoading] = useState(false);
   const [explainLoading, setExplainLoading] = useState<number | null>(null);
   const [detailedExplain, setDetailedExplain] = useState<string | null>(null);
+  const [statusPollTick, setStatusPollTick] = useState(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastQuestionIndexRef = useRef<number | null>(null);
+  const timeoutHandledForQuestionRef = useRef<number | null>(null);
+  const prevQuestionTimeRemainingRef = useRef<number>(0);
+  const explanationRevealedForQuestionRef = useRef<number | null>(null);
+  const everyoneAnsweredConfirmedForRef = useRef<number | null>(null);
 
   const isHost = mode === 'host' && !!serverId;
+
+  // When the server advances to a new question (e.g. from polling), reset answer state and timer so joiners can answer the next question.
+  useEffect(() => {
+    if (step !== 'playing' || status?.current_question_index == null) return;
+    const idx = status.current_question_index;
+    if (lastQuestionIndexRef.current !== null && lastQuestionIndexRef.current !== idx) {
+      setAnswerSent(false);
+      setExplanation(null);
+      setCorrectAnswerText(null);
+      setQuestionTimeRemaining(30);
+      timeoutHandledForQuestionRef.current = null;
+      explanationRevealedForQuestionRef.current = null;
+      everyoneAnsweredConfirmedForRef.current = null;
+    }
+    lastQuestionIndexRef.current = idx;
+  }, [step, status?.current_question_index]);
+
+  // When joiner first enters playing (from lobby), set timer to 30 so they can answer instead of immediately hitting timeout.
+  useEffect(() => {
+    if (
+      step === 'playing' &&
+      status?.current_question_index != null &&
+      questionTimeRemaining === 0 &&
+      timeoutHandledForQuestionRef.current !== status.current_question_index
+    ) {
+      setQuestionTimeRemaining(30);
+    }
+  }, [step, status?.current_question_index, questionTimeRemaining]);
 
   const fetchStatus = useCallback(async (sid: string) => {
     const res = await fetch(`/api/quiz/status?server_id=${encodeURIComponent(sid)}`);
@@ -92,15 +134,21 @@ function QuizPartyModal({
   useEffect(() => {
     if (!open) return;
     setStep('config');
-    setMode('host');
+    setMode(joinOnly ? 'join' : 'host');
     setServerId(null);
     setInviteCode('');
     setParticipantId(null);
     setQuizId(null);
     setStatus(null);
+    setLeaderboard([]);
     setJoinCodeError('');
     setConfigError('');
-  }, [open]);
+    lastQuestionIndexRef.current = null;
+    timeoutHandledForQuestionRef.current = null;
+    prevQuestionTimeRemainingRef.current = 0;
+    explanationRevealedForQuestionRef.current = null;
+    everyoneAnsweredConfirmedForRef.current = null;
+  }, [open, joinOnly]);
 
   useEffect(() => {
     if (!open || !serverId) return;
@@ -115,14 +163,20 @@ function QuizPartyModal({
           if (pollRef.current) clearInterval(pollRef.current);
           return;
         }
+        // Ignore stale poll: we may have optimistically advanced (e.g. host clicked Next); don't overwrite with older question
+        if (s.current_question_index < lastQuestionIndexRef.current) return;
         setStatus({
           current_question_index: s.current_question_index,
           total_questions: s.total_questions,
           current_question: s.current_question,
+          participant_count: s.participant_count,
+          answered_count: s.answered_count,
         });
+        setStatusPollTick((t) => t + 1);
         if (s.status === 'active') {
           setStep((prev) => (prev === 'lobby' ? 'playing' : prev));
-          setQuestionTimeRemaining(30);
+          fetchLeaderboard(serverId);
+        } else {
           fetchLeaderboard(serverId);
         }
       });
@@ -134,12 +188,98 @@ function QuizPartyModal({
   }, [open, serverId, fetchStatus, fetchLeaderboard]);
 
   useEffect(() => {
-    if (questionTimeRemaining <= 0 || !status?.current_question) return;
+    if (!status?.current_question || status.current_question_index == null) return;
     timerRef.current = setInterval(() => setQuestionTimeRemaining((t) => Math.max(0, t - 1)), 1000);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [questionTimeRemaining, status?.current_question]);
+  }, [status?.current_question_index, !!status?.current_question]);
+
+  // When timer reaches 0 and the user hasn't answered, submit time-out (0 points) and show explanation.
+  // Only run when timer transitioned from >0 to 0 (prevQuestionTimeRemainingRef), not on initial 0.
+  useEffect(() => {
+    const prev = prevQuestionTimeRemainingRef.current;
+    prevQuestionTimeRemainingRef.current = questionTimeRemaining;
+    if (
+      step !== 'playing' ||
+      questionTimeRemaining !== 0 ||
+      answerSent ||
+      !serverId ||
+      !participantId ||
+      status?.current_question_index == null
+    )
+      return;
+    if (prev <= 0) return;
+    const qIndex = status.current_question_index;
+    if (timeoutHandledForQuestionRef.current === qIndex) return;
+    timeoutHandledForQuestionRef.current = qIndex;
+    setAnswerSent(true);
+    const sid = serverId;
+    const qId = quizId;
+    fetch('/api/quiz/answer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        server_id: sid,
+        participant_id: participantId,
+        question_index: qIndex,
+        time_out: true,
+      }),
+    })
+      .then(() => fetchLeaderboard(sid))
+      .catch(() => {});
+    if (qId) {
+      fetch(`/api/quiz/question/${qId}/${qIndex}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((q) => {
+          if (q) {
+            setExplanation(q.explanation ?? null);
+            const choices = Array.isArray(q.choices) ? q.choices : [];
+            const idx = Number(q.correct_choice_index);
+            setCorrectAnswerText(choices[idx] ?? null);
+          }
+        });
+    }
+  }, [step, questionTimeRemaining, answerSent, serverId, participantId, status?.current_question_index, quizId, fetchLeaderboard]);
+
+  // When everyone has answered the current question, show the correct answer and explanation.
+  // Require two consecutive poll responses with answered_count >= participant_count before revealing,
+  // so we don't reveal on a single stale or race-y count.
+  useEffect(() => {
+    const pc = status?.participant_count ?? 0;
+    const ac = status?.answered_count ?? 0;
+    const qIndex = status?.current_question_index ?? null;
+    if (
+      step !== 'playing' ||
+      !answerSent ||
+      pc === 0 ||
+      ac < pc ||
+      qIndex == null ||
+      !quizId ||
+      explanationRevealedForQuestionRef.current === qIndex
+    )
+      return;
+    const everyoneAnswered = ac >= pc;
+    if (!everyoneAnswered) {
+      everyoneAnsweredConfirmedForRef.current = null;
+      return;
+    }
+    if (everyoneAnsweredConfirmedForRef.current !== qIndex) {
+      everyoneAnsweredConfirmedForRef.current = qIndex;
+      return;
+    }
+    explanationRevealedForQuestionRef.current = qIndex;
+    fetch(`/api/quiz/question/${quizId}/${qIndex}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((q) => {
+        if (q) {
+          setExplanation(q.explanation ?? null);
+          const choices = Array.isArray(q.choices) ? q.choices : [];
+          const idx = Number(q.correct_choice_index);
+          setCorrectAnswerText(choices[idx] ?? null);
+        }
+      });
+  }, [step, answerSent, status?.participant_count, status?.answered_count, status?.current_question_index, quizId, statusPollTick]);
 
   const handleStartServer = async () => {
     if (maxPlayers < 2 || maxPlayers > 100) {
@@ -167,6 +307,7 @@ function QuizPartyModal({
       if (!res.ok) throw new Error(data.error || 'Failed to create server');
       setServerId(data.server_id);
       setInviteCode(data.invite_code);
+      setLeaderboard([]);
       setStep('lobby');
     } catch (e) {
       setConfigError(e instanceof Error ? e.message : 'Failed to create server');
@@ -187,6 +328,7 @@ function QuizPartyModal({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to start quiz');
       setQuizId(data.quiz_id);
+      if (data.participant_id) setParticipantId(data.participant_id);
       setStep('playing');
       setStatus({ current_question_index: 0, total_questions: data.question_count || 0 });
       setQuestionTimeRemaining(30);
@@ -219,12 +361,18 @@ function QuizPartyModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code: upper,
-          display_name: displayName.trim() || (userId ? 'Player' : 'Guest'),
+          display_name: userId ? (displayName.trim() || 'Player') : `Guest ${displayName.trim() || 'Player'}`,
           user_id: userId,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to join');
+      if (!res.ok) {
+        const msg = data?.error ?? 'Failed to join';
+        if (res.status === 503 && typeof msg === 'string' && msg.includes('DynamoDB') && msg.includes('not configured')) {
+          throw new Error('Use the same link as the host—don’t run the app on your own. Ask the host to share their game URL (e.g. the deployed site or their shared link).');
+        }
+        throw new Error(msg);
+      }
       setServerId(data.quiz_server_id);
       setParticipantId(data.participant_id);
       setGuestTagDataUri(data.guest_tag_data_uri || null);
@@ -257,19 +405,6 @@ function QuizPartyModal({
       });
     } catch (_) {}
     fetchLeaderboard(serverId);
-    const qId = quizId;
-    if (qId) {
-      fetch(`/api/quiz/question/${qId}/${qIndex}`)
-        .then((r) => r.ok ? r.json() : null)
-        .then((q) => {
-          if (q) {
-            setExplanation(q.explanation ?? null);
-            const choices = Array.isArray(q.choices) ? q.choices : [];
-            const idx = Number(q.correct_choice_index);
-            setCorrectAnswerText(choices[idx] ?? null);
-          }
-        });
-    }
   };
 
   const handleAdvance = async () => {
@@ -285,10 +420,29 @@ function QuizPartyModal({
         setStep('ended');
         fetchLeaderboard(serverId);
       } else {
+        const nextIndex = data.current_question_index ?? (status?.current_question_index ?? 0) + 1;
         setQuestionTimeRemaining(30);
         setAnswerSent(false);
         setExplanation(null);
         setCorrectAnswerText(null);
+        // Optimistically bump question index so we don't re-show the previous question
+        setStatus((prev) =>
+          prev ? { ...prev, current_question_index: nextIndex, current_question: undefined } : null
+        );
+        lastQuestionIndexRef.current = nextIndex;
+        explanationRevealedForQuestionRef.current = null;
+        everyoneAnsweredConfirmedForRef.current = null;
+        // Fetch new question immediately so we don't show a blank until the next poll
+        fetchStatus(serverId).then((s) => {
+          if (!s || s.status === 'ended') return;
+          setStatus({
+            current_question_index: s.current_question_index,
+            total_questions: s.total_questions,
+            current_question: s.current_question,
+            participant_count: s.participant_count,
+            answered_count: s.answered_count,
+          });
+        });
       }
     } catch (_) {}
   };
@@ -338,22 +492,24 @@ function QuizPartyModal({
 
         {step === 'config' && (
           <>
-            <div className="mt-4 flex gap-2">
-              <button
-                type="button"
-                className={`rounded px-3 py-1.5 text-sm ${mode === 'host' ? 'bg-muted' : ''}`}
-                onClick={() => { setMode('host'); setJoinCodeError(''); }}
-              >
-                Host a Quiz
-              </button>
-              <button
-                type="button"
-                className={`rounded px-3 py-1.5 text-sm ${mode === 'join' ? 'bg-muted' : ''}`}
-                onClick={() => { setMode('join'); setConfigError(''); }}
-              >
-                Join a Quiz
-              </button>
-            </div>
+            {!joinOnly && (
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  className={`rounded px-3 py-1.5 text-sm ${mode === 'host' ? 'bg-muted' : ''}`}
+                  onClick={() => { setMode('host'); setJoinCodeError(''); }}
+                >
+                  Host a Quiz
+                </button>
+                <button
+                  type="button"
+                  className={`rounded px-3 py-1.5 text-sm ${mode === 'join' ? 'bg-muted' : ''}`}
+                  onClick={() => { setMode('join'); setConfigError(''); }}
+                >
+                  Join a Quiz
+                </button>
+              </div>
+            )}
             {mode === 'host' && (
               <div className="mt-4 space-y-3">
                 <p className="text-sm text-muted-foreground">Create a quiz from: {sessionTitle}</p>
@@ -396,9 +552,9 @@ function QuizPartyModal({
                 />
                 {!userId && (
                   <>
-                    <label className="block text-sm">Your display name (guests)</label>
+                    <label className="block text-sm">Your name (shown as &quot;Guest [name]&quot;)</label>
                     <Input
-                      placeholder="Display name"
+                      placeholder="e.g. Alice"
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
                     />
@@ -446,9 +602,10 @@ function QuizPartyModal({
         {step === 'playing' && status && (
           <div className="mt-4 space-y-3">
             <p className="text-sm text-muted-foreground">
-              Question {status.current_question_index + 1} of {status.total_questions} · Time: {questionTimeRemaining}s
+              Question {status.current_question_index + 1} of {status.total_questions}
+              {!answerSent && !explanation ? ` · Time: ${questionTimeRemaining}s` : ''}
             </p>
-            {status.current_question && !explanation && (
+            {status.current_question && status.current_question.question_index === status.current_question_index && !answerSent && !explanation && (
               <>
                 <p className="font-medium">{status.current_question.question_text}</p>
                 <div className="space-y-2">
@@ -456,8 +613,14 @@ function QuizPartyModal({
                     <button
                       key={i}
                       type="button"
-                      className="block w-full rounded border bg-muted/30 px-3 py-2 text-left text-sm hover:bg-muted/50 disabled:opacity-50"
+                      className="block w-full cursor-pointer rounded border bg-muted/30 px-3 py-2 text-left text-sm hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={() => handleSubmitAnswer(i)}
+                      onPointerDown={(e) => {
+                        if (e.pointerType === 'touch' && e.button === 0 && !answerSent && serverId && participantId) {
+                          e.preventDefault();
+                          handleSubmitAnswer(i);
+                        }
+                      }}
                       disabled={answerSent}
                     >
                       {c}
@@ -466,7 +629,26 @@ function QuizPartyModal({
                 </div>
               </>
             )}
-            {explanation && (
+            {!answerSent && !explanation && (!status.current_question || status.current_question.question_index !== status.current_question_index) && (
+              <p className="text-sm text-muted-foreground py-4">Loading next question…</p>
+            )}
+            {answerSent && !explanation && (
+              <div className="rounded-lg border border-muted bg-muted/20 p-6 text-center space-y-3">
+                <p className="font-medium text-lg">You’ve answered!</p>
+                <p className="text-sm text-muted-foreground">
+                  Waiting for other players to answer…
+                </p>
+                {status.participant_count != null && status.answered_count != null && status.participant_count > 0 && (
+                  <p className="text-sm">
+                    <span className="font-medium">{status.answered_count}</span>
+                    <span className="text-muted-foreground"> of </span>
+                    <span className="font-medium">{status.participant_count}</span>
+                    <span className="text-muted-foreground"> players have answered</span>
+                  </p>
+                )}
+              </div>
+            )}
+            {explanation && status?.current_question_index === explanationRevealedForQuestionRef.current && (
               <>
                 {correctAnswerText && (
                   <p className="text-sm font-medium">Correct answer: {correctAnswerText}</p>
@@ -476,20 +658,20 @@ function QuizPartyModal({
                 {isHost && (
                   <Button className="w-full" onClick={handleAdvance}>Next question</Button>
                 )}
+                <div className="max-h-24 overflow-auto border-t pt-2">
+                  <p className="text-sm font-medium">Leaderboard</p>
+                  {leaderboard.map((p, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm">
+                      {p.guest && p.guest_tag_data_uri ? (
+                        <img src={p.guest_tag_data_uri} alt="Guest" className="h-4 w-4 inline-block flex-shrink-0" />
+                      ) : null}
+                      <span>{p.display_name}</span>
+                      <span>{p.score}</span>
+                    </div>
+                  ))}
+                </div>
               </>
             )}
-            <div className="max-h-24 overflow-auto border-t pt-2">
-              <p className="text-sm font-medium">Leaderboard</p>
-              {leaderboard.map((p, i) => (
-                <div key={i} className="flex items-center gap-2 text-sm">
-                  {p.guest && p.guest_tag_data_uri ? (
-                    <img src={p.guest_tag_data_uri} alt="Guest" className="h-4 w-4 inline-block flex-shrink-0" />
-                  ) : null}
-                  <span>{p.display_name}</span>
-                  <span>{p.score}</span>
-                </div>
-              ))}
-            </div>
           </div>
         )}
 
@@ -532,6 +714,8 @@ function QuizPartyModal({
     </div>
   );
 }
+
+export { QuizPartyModal };
 
 export default function LectureSessionDetailPage() {
   const params = useParams<{ sessionId: string }>();

@@ -19,8 +19,7 @@ export async function POST(request: NextRequest) {
     const serverId = typeof body.server_id === 'string' ? body.server_id.trim() : (body.serverId ?? '').trim();
     const participantId = typeof body.participant_id === 'string' ? body.participant_id.trim() : (body.participantId ?? '').trim();
     const questionIndex = Math.max(0, Math.floor(Number(body.question_index ?? body.questionIndex)));
-    const choiceIndex = Math.max(0, Math.min(3, Math.floor(Number(body.choice_index ?? body.choiceIndex))));
-    const timeMs = typeof body.time_ms === 'number' ? body.time_ms : null;
+    const timeOut = body.time_out === true;
 
     if (!serverId || !participantId) {
       return NextResponse.json(
@@ -37,12 +36,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const question = await getQuestion(serverId, questionIndex);
-    if (!question) {
-      return NextResponse.json({ error: 'Question not found.' }, { status: 404 });
+    let correct: boolean;
+    let choiceIndex: number;
+    let timeMs: number | null;
+
+    if (timeOut) {
+      correct = false;
+      choiceIndex = 0;
+      timeMs = null;
+    } else {
+      choiceIndex = Math.max(0, Math.min(3, Math.floor(Number(body.choice_index ?? body.choiceIndex))));
+      timeMs = typeof body.time_ms === 'number' ? body.time_ms : null;
+      const question = await getQuestion(serverId, questionIndex);
+      if (!question) {
+        return NextResponse.json({ error: 'Question not found.' }, { status: 404 });
+      }
+      correct = choiceIndex === question.correct_choice_index;
     }
 
-    const correct = choiceIndex === question.correct_choice_index;
     const { points, total_score: newScore } = await submitAnswer({
       serverId,
       participantId,

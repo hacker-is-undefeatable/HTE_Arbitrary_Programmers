@@ -11,7 +11,10 @@ export default function Home() {
       title="Learn Smarter with AI"
       subtitle="Personalized learning paths adapted to your level"
       rightSlot={
-        <div className="space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/join-quiz">
+            <Button variant="ghost" size="sm" className="text-white">Join Quiz Party</Button>
+          </Link>
           <Link href="/login">
             <Button variant="ghost" size="sm">Sign In</Button>
           </Link>
@@ -34,7 +37,13 @@ export default function Home() {
             <Link href="/login">
               <Button variant="outline">I already have an account</Button>
             </Link>
+            <Link href="/join-quiz">
+              <Button variant="secondary" className="text-white">Join Quiz Party</Button>
+            </Link>
           </div>
+          <p className="text-sm text-muted-foreground mt-2">
+            Have an invite code? Join a live quiz with no account needed — just enter the code and your name.
+          </p>
         </div>
 
         <div className="grid md:grid-cols-3 gap-4">

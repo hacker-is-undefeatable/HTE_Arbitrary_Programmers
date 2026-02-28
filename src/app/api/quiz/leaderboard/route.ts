@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const participants = await listParticipants(serverId);
+    const participants = await listParticipants(serverId, true);
 
     return NextResponse.json({
       leaderboard: participants.map((p) => ({

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { GlobalStudyCompanion } from '@/components/study/GlobalStudyCompanion';
 
 export const metadata: Metadata = {
   title: 'DualPath AI',
@@ -18,6 +19,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className="bg-gradient-to-br from-slate-50 to-slate-100 min-h-screen">
         {children}
+        <GlobalStudyCompanion />
       </body>
     </html>
   );

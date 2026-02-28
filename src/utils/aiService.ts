@@ -1,0 +1,279 @@
+import { AIExplanation, ExplanationStyle, UserRole } from '@/types';
+import { AzureOpenAI } from 'openai';
+
+// Initialize client lazily to avoid errors during build
+let openaiClient: AzureOpenAI | null = null;
+
+function getOpenAIClient(): AzureOpenAI {
+  if (!openaiClient) {
+    openaiClient = new AzureOpenAI({
+      apiKey: process.env.AZURE_OPENAI_API_KEY,
+      apiVersion: process.env.AZURE_OPENAI_API_VERSION || '2024-10-21',
+      baseURL: `${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT_NAME || 'gpt-4o-mini'}`,
+    });
+  }
+  return openaiClient;
+}
+
+/**
+ * Generate mistake-aware explanation using OpenAI
+ * Explains why the student's answer is incorrect and identifies misconceptions
+ */
+export const generateMistakeExplanation = async (
+  question: string,
+  userAnswer: string,
+  correctAnswer: string,
+  topic: string,
+  explanationStyle: ExplanationStyle,
+  masteryLevel: number
+): Promise<AIExplanation> => {
+  const stylePrompt = getStylePrompt(explanationStyle);
+  const masteryAdaptation = getMasteryAdaptation(masteryLevel);
+
+  const prompt = `You are an expert tutor explaining why a student's answer is incorrect.
+
+Topic: ${topic}
+Student's Mastery Level: ${masteryLevel}%
+
+Question: ${question}
+Student's Answer: ${userAnswer}
+Correct Answer: ${correctAnswer}
+
+${stylePrompt}
+${masteryAdaptation}
+
+Please provide:
+1. A clear explanation of why the student's answer is incorrect
+2. Identify the likely misconception causing this error
+3. Provide a step-by-step correction
+4. Generate a follow-up practice question to reinforce learning
+
+Format your response as JSON with these exact keys:
+{
+  "explanation": "...",
+  "misconception": "...",
+  "follow_up_question": "..."
+}`;
+
+  try {
+    const response = await getOpenAIClient().chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: 0.7,
+      max_tokens: 500,
+    });
+
+    const content = response.choices[0]?.message?.content || '{}';
+    const parsed = JSON.parse(content);
+
+    return {
+      explanation: parsed.explanation || '',
+      misconception: parsed.misconception || '',
+      follow_up_question: parsed.follow_up_question || '',
+    };
+  } catch (error) {
+    console.error('Error generating AI explanation:', error);
+    return {
+      explanation: 'Unable to generate explanation at this time.',
+      misconception: 'Please consult your study materials.',
+      follow_up_question: 'Try the question again!',
+    };
+  }
+};
+
+/**
+ * Generate adaptive quiz questions based on difficulty
+ */
+export const generateAdaptiveQuestions = async (
+  subject: string,
+  topic: string,
+  difficulty: 'easy' | 'medium' | 'hard',
+  count: number = 1
+): Promise<string[]> => {
+  const difficultyPrompt = {
+    easy: 'Create a basic, foundational question',
+    medium: 'Create a moderately challenging question that requires some application of concepts',
+    hard: 'Create a challenging question that requires deep understanding and complex reasoning',
+  };
+
+  const prompt = `Generate ${count} high-quality education quiz question(s) for a student learning ${subject}.
+
+Topic: ${topic}
+Difficulty Level: ${difficulty}
+Requirement: ${difficultyPrompt[difficulty]}
+
+Format: For each question, provide a JSON object with:
+{
+  "question": "...",
+  "options": ["A", "B", "C", "D"],
+  "correct_answer": "A",
+  "explanation": "..."
+}
+
+Generate exactly ${count} question(s) in valid JSON format.`;
+
+  try {
+    const response = await getOpenAIClient().chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: 0.8,
+      max_tokens: 1000,
+    });
+
+    const content = response.choices[0]?.message?.content || '';
+    // Extract JSON from response
+    const jsonMatches = content.match(/\{[\s\S]*?\}/g) || [];
+    return jsonMatches.slice(0, count);
+  } catch (error) {
+    console.error('Error generating adaptive questions:', error);
+    return [];
+  }
+};
+
+/**
+ * Generate Python debugging explanation
+ */
+export const generatePythonDebugExplanation = async (
+  code: string,
+  error: string,
+  explanationStyle: ExplanationStyle
+): Promise<{
+  explanation: string;
+  hint: string;
+  suggested_improvement: string;
+}> => {
+  const stylePrompt = getStylePrompt(explanationStyle);
+
+  const prompt = `You are an expert Python tutor. A student's code has an error and needs help understanding it.
+
+Code:
+\`\`\`python
+${code}
+\`\`\`
+
+Error Message:
+${error}
+
+${stylePrompt}
+
+Please provide:
+1. A clear explanation of what went wrong
+2. A helpful hint to guide the student
+3. A suggested improvement to the code
+
+Format your response as JSON:
+{
+  "explanation": "...",
+  "hint": "...",
+  "suggested_improvement": "..."
+}`;
+
+  try {
+    const response = await getOpenAIClient().chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: 0.7,
+      max_tokens: 600,
+    });
+
+    const content = response.choices[0]?.message?.content || '{}';
+    const parsed = JSON.parse(content);
+
+    return {
+      explanation: parsed.explanation || '',
+      hint: parsed.hint || '',
+      suggested_improvement: parsed.suggested_improvement || '',
+    };
+  } catch (error) {
+    console.error('Error generating Python debug explanation:', error);
+    return {
+      explanation: 'Unable to generate explanation at this time.',
+      hint: 'Check the error message and review the Python documentation.',
+      suggested_improvement: 'Review your code logic.',
+    };
+  }
+};
+
+/**
+ * Generate roadmap for learning project
+ */
+export const generateLearningRoadmap = async (
+  subject: string,
+  userRole: UserRole,
+  learningGoal: string
+): Promise<string[]> => {
+  const prompt = `Create a personalized learning roadmap for a ${userRole} student learning ${subject}.
+
+Learning Goal: ${learningGoal}
+
+Please provide a structured, progressive list of topics/milestones they should master in order. 
+Each item should be specific and achievable.
+
+Format as a JSON array of strings:
+["Topic 1", "Topic 2", "Topic 3", ...]
+
+Provide 8-10 key topics in logical order.`;
+
+  try {
+    const response = await getOpenAIClient().chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: 0.7,
+      max_tokens: 500,
+    });
+
+    const content = response.choices[0]?.message?.content || '[]';
+    const parsed = JSON.parse(content);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error('Error generating learning roadmap:', error);
+    return [];
+  }
+};
+
+// Helper functions
+
+/**
+ * Get style-specific prompt for AI
+ */
+function getStylePrompt(style: ExplanationStyle): string {
+  const stylePrompts = {
+    'step-by-step': 'Provide detailed step-by-step instructions.',
+    conceptual: 'Focus on the underlying concepts and principles.',
+    visual: 'Describe how to visualize or diagram this concept.',
+  };
+  return stylePrompts[style];
+}
+
+/**
+ * Get mastery-level adaptation for prompts
+ */
+function getMasteryAdaptation(masteryLevel: number): string {
+  if (masteryLevel < 40) {
+    return 'The student is a beginner. Use simple language and basic examples.';
+  } else if (masteryLevel <= 75) {
+    return 'The student is intermediate. You can use moderately complex explanations.';
+  } else {
+    return 'The student is advanced. Provide sophisticated explanations and edge cases.';
+  }
+}

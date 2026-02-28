@@ -656,7 +656,11 @@ function QuizPartyModal({
                 <p className="text-sm text-muted-foreground">Explanation:</p>
                 <p className="text-sm">{explanation}</p>
                 {isHost && (
-                  <Button className="w-full" onClick={handleAdvance}>Next question</Button>
+                  <Button className="w-full" onClick={handleAdvance}>
+                    {status.total_questions != null && status.current_question_index === status.total_questions - 1
+                      ? 'End quiz'
+                      : 'Next question'}
+                  </Button>
                 )}
                 <div className="max-h-24 overflow-auto border-t pt-2">
                   <p className="text-sm font-medium">Leaderboard</p>

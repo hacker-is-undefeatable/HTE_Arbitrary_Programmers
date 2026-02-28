@@ -529,7 +529,7 @@ export default function LectureSessionDetailPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Uploaded Files</CardTitle>
-                  <CardDescription>Lecture materials uploaded during quick create</CardDescription>
+                  <CardDescription>Lecture materials uploaded during Board your Flight</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6 text-sm">
                   <div className="space-y-2">

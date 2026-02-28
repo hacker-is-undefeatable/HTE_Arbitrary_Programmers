@@ -26,7 +26,7 @@ export function PublicShell({ title, subtitle, children, rightSlot }: PublicShel
           <div className="flex items-center gap-2 px-2 py-1 text-sm font-medium">
             <Circle className="h-4 w-4" />
             <Link href="/" className="hover:text-primary transition-colors">
-              Acme Inc.
+              ScholarFly
             </Link>
           </div>
 

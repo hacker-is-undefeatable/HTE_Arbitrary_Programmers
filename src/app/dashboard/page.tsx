@@ -14,6 +14,7 @@ import {
   UserCircle,
   LogOut,
   Plus,
+  Plane,
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -27,9 +28,10 @@ export default function DashboardPage() {
   const [showDeleteWarning, setShowDeleteWarning] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [revisionRange, setRevisionRange] = useState<'7d' | '30d' | '1y'>('7d');
 
   const revisionChart = useMemo(() => {
-    const days = 7;
+    const days = revisionRange === '30d' ? 30 : revisionRange === '1y' ? 365 : 7;
     const buckets: Record<string, number> = {};
 
     for (let i = days - 1; i >= 0; i--) {
@@ -54,37 +56,83 @@ export default function DashboardPage() {
     const hours = Object.values(buckets).map((seconds) => Number((seconds / 3600).toFixed(2)));
     const points = hours.map((value) => Math.max(0.05, value));
 
-    const totalHours = Number((revisionTimeLogs.reduce((sum, item) => sum + Number(item.duration_seconds || 0), 0) / 3600).toFixed(2));
+    const totalHours = Number(
+      (Object.values(buckets).reduce((sum, seconds) => sum + Number(seconds || 0), 0) / 3600).toFixed(2)
+    );
 
     const max = Math.max(...points, 1);
-    const desktopPoints = points
+    const chartPoints = points
       .map((value, index) => {
         const x = (index / (points.length - 1)) * 100;
         const y = 100 - (value / max) * 80;
-        return `${x},${y}`;
-      })
-      .join(' ');
+        return { x, y };
+      });
+
+    const linePath = chartPoints.reduce((path, point, index, arr) => {
+      if (index === 0) {
+        return `M ${point.x},${point.y}`;
+      }
+
+      const previous = arr[index - 1];
+      const controlX = (previous.x + point.x) / 2;
+
+      return `${path} C ${controlX},${previous.y} ${controlX},${point.y} ${point.x},${point.y}`;
+    }, '');
+
+    const firstPoint = chartPoints[0];
+    const lastPoint = chartPoints[chartPoints.length - 1];
+    const areaPath = `${linePath} L ${lastPoint.x},100 L ${firstPoint.x},100 Z`;
 
     return {
       labels,
       points,
       totalHours,
-      desktopArea: `0,100 ${desktopPoints} 100,100`,
-      desktopLine: desktopPoints,
+      desktopAreaPath: areaPath,
+      desktopLinePath: linePath,
     };
-  }, [revisionTimeLogs]);
+  }, [revisionTimeLogs, revisionRange]);
+
+  const revisionXAxisLabels = useMemo(() => {
+    const sourceLabels = revisionChart.labels;
+    const targetCount = 7;
+
+    if (sourceLabels.length <= targetCount) {
+      return sourceLabels;
+    }
+
+    return Array.from({ length: targetCount }, (_, index) => {
+      const sourceIndex = Math.round((index * (sourceLabels.length - 1)) / (targetCount - 1));
+      return sourceLabels[sourceIndex];
+    });
+  }, [revisionChart.labels]);
 
   const lectureCards = useMemo(() => {
-    return lectureSessions.map((session) => ({
-      sessionId: session.id,
-      label: session.lecture_title || 'Untitled Lecture',
-      value: `${(session.generated_quizzes || []).length} quizzes`,
-      note: `${(session.generated_flashcards || []).length} flashcards generated`,
-      sub: `Created ${new Date(session.created_at).toLocaleDateString()}`,
-    }));
+    return [...lectureSessions]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 3)
+      .map((session) => {
+        const createdAt = new Date(session.created_at);
+
+        return {
+          sessionId: session.id,
+          label: session.lecture_title || 'Untitled Lecture',
+          value: `${(session.generated_quizzes || []).length} quizzes`,
+          note: `${(session.generated_flashcards || []).length} flashcards generated`,
+          sub: `Created ${createdAt.toLocaleDateString()}`,
+          time: createdAt.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          }),
+          date: createdAt.toLocaleDateString('en-US', {
+            day: '2-digit',
+            month: 'short',
+          }),
+        };
+      });
   }, [lectureSessions]);
 
-  const allSelected = lectureCards.length > 0 && selectedSessionIds.length === lectureCards.length;
+  const allSelected = lectureSessions.length > 0 && selectedSessionIds.length === lectureSessions.length;
 
   const toggleSessionSelection = (sessionId: string) => {
     setSelectedSessionIds((prev) =>
@@ -97,7 +145,7 @@ export default function DashboardPage() {
       setSelectedSessionIds([]);
       return;
     }
-    setSelectedSessionIds(lectureCards.map((lecture) => lecture.sessionId));
+    setSelectedSessionIds(lectureSessions.map((session) => String(session.id)));
   };
 
   const handleToggleBatchDeleteMode = () => {
@@ -224,14 +272,14 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2 px-2 py-1 text-sm font-medium">
             <Circle className="h-4 w-4" />
             <Link href="/dashboard" className="hover:text-primary transition-colors">
-              Acme Inc.
+              ScholarFly
             </Link>
           </div>
 
           <Button asChild className="mt-6 justify-start rounded-lg bg-foreground text-background hover:bg-foreground/90">
             <Link href="/quick-create">
               <Plus className="mr-2 h-4 w-4" />
-              Quick Create
+              Board your Flight
             </Link>
           </Button>
 
@@ -282,55 +330,44 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between border-b px-4 py-3 sm:px-6">
               <div className="flex items-center gap-2">
                 <h1 className="text-sm font-medium sm:text-base">Dashboards</h1>
-                <Button variant="outline" size="sm" onClick={handleToggleBatchDeleteMode}>
-                  {batchDeleteMode ? 'Cancel Batch Delete' : 'Batch Delete'}
-                </Button>
               </div>
-              {batchDeleteMode ? (
-                <div className="flex items-center gap-2">
-                  <p className="text-sm text-muted-foreground">{selectedSessionIds.length} selected</p>
-                  <Button variant="outline" size="sm" onClick={handleSelectAll}>
-                    {allSelected ? 'Unselect All' : 'Select All'}
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => setShowDeleteWarning(true)}
-                    disabled={selectedSessionIds.length === 0}
-                  >
-                    Delete Selected
-                  </Button>
-                </div>
-              ) : (
-                <div />
-              )}
+              <div />
             </div>
 
             <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
               {lectureCards.length > 0 ? (
                 <>
+                  <p className="text-sm text-muted-foreground">Showing latest 3 flights.</p>
                   <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                   {lectureCards.map((lecture) => (
-                    <Card key={lecture.sessionId} className="relative rounded-xl shadow-none">
-                      {batchDeleteMode ? (
-                        <label className="absolute right-3 top-3 z-10 inline-flex items-center rounded-md bg-background/80 p-1">
-                          <input
-                            type="checkbox"
-                            checked={selectedSessionIds.includes(lecture.sessionId)}
-                            onChange={() => toggleSessionSelection(lecture.sessionId)}
-                            className="h-4 w-4 rounded border border-black accent-black"
-                          />
-                        </label>
-                      ) : null}
-                      <Link href={`/lecture-notes/${lecture.sessionId}`} className="block rounded-xl transition-colors hover:bg-muted/30">
-                        <CardHeader className="space-y-2 p-4">
-                          <CardDescription className="text-lg font-semibold text-foreground">{lecture.label}</CardDescription>
-                          <CardTitle className="text-base font-medium tracking-normal text-muted-foreground">{lecture.value}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-1 p-4 pt-0 text-sm">
-                          <p className="font-medium">{lecture.note}</p>
-                          <p className="text-muted-foreground">{lecture.sub}</p>
-                        </CardContent>
+                    <Card key={lecture.sessionId} className="group relative overflow-hidden rounded-xl border-primary/20 bg-muted/20 shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
+                      <Link href={`/lecture-notes/${lecture.sessionId}`} className="block rounded-xl transition-colors duration-200 hover:bg-muted/35">
+                        <div className="relative flex items-stretch">
+                          <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-primary/35 via-primary/20 to-transparent transition-opacity duration-200 group-hover:opacity-100" />
+                          <span className="absolute -left-2 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 rounded-full border bg-card" />
+                          <span className="absolute -right-2 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 rounded-full border bg-card" />
+
+                          <div className="min-w-0 flex-1 p-4">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-primary/20 bg-primary/15 text-primary">
+                                <Plane className="h-3.5 w-3.5" />
+                              </span>
+                              <CardDescription className="line-clamp-1 text-lg font-semibold text-foreground">
+                                {lecture.label}
+                              </CardDescription>
+                            </div>
+                            <CardTitle className="mt-2 text-base font-medium tracking-normal text-muted-foreground">
+                              {lecture.value}
+                            </CardTitle>
+                            <p className="mt-1 text-sm font-medium">{lecture.note}</p>
+                            <p className="text-sm text-muted-foreground">{lecture.sub}</p>
+                          </div>
+
+                          <div className="flex w-[92px] shrink-0 flex-col items-center justify-center border-l border-dashed border-primary/20 bg-primary/5 p-3 transition-colors duration-200 group-hover:bg-primary/10">
+                            <p className="text-2xl font-semibold leading-none">{lecture.time}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{lecture.date}</p>
+                          </div>
+                        </div>
                       </Link>
                     </Card>
                   ))}
@@ -339,7 +376,7 @@ export default function DashboardPage() {
               ) : (
                 <Card className="rounded-xl shadow-none">
                   <CardContent className="p-4 text-sm text-muted-foreground">
-                    No lecture yet. Create a lecture using Quick Create.
+                    No lecture yet. Create a lecture using Board your Flight.
                   </CardContent>
                 </Card>
               )}
@@ -348,7 +385,33 @@ export default function DashboardPage() {
                 <CardHeader className="flex flex-row items-start justify-between gap-3 p-4">
                   <div>
                     <CardTitle className="text-xl">Revision Time Spent</CardTitle>
-                    <CardDescription>Total revision hours tracked from your revision page sessions</CardDescription>
+                    <CardDescription>Total revision hours tracked from your selected period</CardDescription>
+                    <div className="mt-3 inline-flex items-center gap-1 rounded-md border bg-muted/30 p-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={revisionRange === '7d' ? 'default' : 'ghost'}
+                        onClick={() => setRevisionRange('7d')}
+                      >
+                        7 days
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={revisionRange === '30d' ? 'default' : 'ghost'}
+                        onClick={() => setRevisionRange('30d')}
+                      >
+                        30 days
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={revisionRange === '1y' ? 'default' : 'ghost'}
+                        onClick={() => setRevisionRange('1y')}
+                      >
+                        1 year
+                      </Button>
+                    </div>
                   </div>
                   <div className="inline-flex items-center rounded-md border bg-muted/30 px-3 py-1 text-sm font-medium">
                     {revisionChart.totalHours} hours
@@ -361,16 +424,126 @@ export default function DashboardPage() {
                       <line x1="0" y1="60" x2="100" y2="60" className="stroke-border" strokeWidth="0.3" />
                       <line x1="0" y1="40" x2="100" y2="40" className="stroke-border" strokeWidth="0.3" />
                       <line x1="0" y1="20" x2="100" y2="20" className="stroke-border" strokeWidth="0.3" />
-                      <polygon points={revisionChart.desktopArea} className="fill-foreground/15" />
-                      <polyline points={revisionChart.desktopLine} className="fill-none stroke-foreground/80" strokeWidth="0.5" />
+                      <path d={revisionChart.desktopAreaPath} className="fill-foreground/15" />
+                      <path d={revisionChart.desktopLinePath} className="fill-none stroke-foreground/80" strokeWidth="0.5" />
                     </svg>
                   </div>
 
                   <div className="grid grid-cols-7 gap-2 text-center text-xs text-muted-foreground">
-                    {revisionChart.labels.map((label) => (
+                    {revisionXAxisLabels.map((label) => (
                       <span key={label}>{label}</span>
                     ))}
                   </div>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-xl shadow-none">
+                <CardHeader className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <CardTitle>Session History</CardTitle>
+                      <CardDescription>Previously processed sessions with stored materials</CardDescription>
+                    </div>
+
+                    <Button variant="outline" size="sm" onClick={handleToggleBatchDeleteMode}>
+                      {batchDeleteMode ? 'Cancel Batch Delete' : 'Batch Delete'}
+                    </Button>
+                  </div>
+
+                  {batchDeleteMode ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm text-muted-foreground">{selectedSessionIds.length} selected</p>
+                      <Button variant="outline" size="sm" onClick={handleSelectAll}>
+                        {allSelected ? 'Unselect All' : 'Select All'}
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setShowDeleteWarning(true)}
+                        disabled={selectedSessionIds.length === 0}
+                      >
+                        Delete Selected
+                      </Button>
+                    </div>
+                  ) : null}
+                </CardHeader>
+                <CardContent>
+                  {lectureSessions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No saved sessions yet.</p>
+                  ) : (
+                    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                      {[...lectureSessions]
+                        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                        .map((session) => {
+                          const createdAt = new Date(session.created_at);
+
+                          return (
+                            <div
+                              key={session.id}
+                              className="group relative overflow-hidden rounded-xl border border-primary/20 bg-muted/20 shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                            >
+                              {batchDeleteMode ? (
+                                <label className="absolute right-3 top-3 z-10 inline-flex items-center rounded-md bg-background/80 p-1">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedSessionIds.includes(String(session.id))}
+                                    onChange={() => toggleSessionSelection(String(session.id))}
+                                    className="h-4 w-4 rounded border border-black accent-black"
+                                  />
+                                </label>
+                              ) : null}
+                              <div className="relative flex items-stretch">
+                                <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-primary/35 via-primary/20 to-transparent transition-opacity duration-200 group-hover:opacity-100" />
+                                <span className="absolute -left-2 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 rounded-full border bg-card" />
+                                <span className="absolute -right-2 top-1/2 z-[1] h-4 w-4 -translate-y-1/2 rounded-full border bg-card" />
+
+                                <div className="min-w-0 flex-1 p-4">
+                                  <div className="flex items-center gap-2">
+                                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-primary/20 bg-primary/15 text-primary">
+                                      <Plane className="h-3.5 w-3.5" />
+                                    </span>
+                                    <p className="line-clamp-1 text-lg font-semibold text-foreground">
+                                      {session.lecture_title || 'Untitled Lecture'}
+                                    </p>
+                                  </div>
+                                  <p className="mt-2 text-sm text-muted-foreground">
+                                    {(session.generated_quizzes?.length || 0)} quizzes · {(session.generated_flashcards?.length || 0)} flashcards
+                                  </p>
+                                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                                    {session.media_url ? (
+                                      <a href={session.media_url} target="_blank" rel="noreferrer" className="underline">
+                                        media file
+                                      </a>
+                                    ) : null}
+                                    {session.notes_url ? (
+                                      <a href={session.notes_url} target="_blank" rel="noreferrer" className="underline">
+                                        notes file
+                                      </a>
+                                    ) : null}
+                                  </div>
+                                </div>
+
+                                <div className="flex w-[92px] shrink-0 flex-col items-center justify-center border-l border-dashed border-primary/20 bg-primary/5 p-3 transition-colors duration-200 group-hover:bg-primary/10">
+                                  <p className="text-2xl font-semibold leading-none">
+                                    {createdAt.toLocaleTimeString('en-US', {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                      hour12: false,
+                                    })}
+                                  </p>
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    {createdAt.toLocaleDateString('en-US', {
+                                      day: '2-digit',
+                                      month: 'short',
+                                    })}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

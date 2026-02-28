@@ -38,14 +38,14 @@ export function AppShell({ title, subtitle, children, rightSlot, outsideTopSlot 
           <div className="flex items-center gap-2 px-2 py-1 text-sm font-medium">
             <Circle className="h-4 w-4" />
             <Link href="/dashboard" className="hover:text-primary transition-colors">
-              Acme Inc.
+              ScholarFly
             </Link>
           </div>
 
           <Button asChild className="mt-6 justify-start rounded-lg bg-foreground text-background hover:bg-foreground/90">
             <Link href="/quick-create">
               <Plus className="mr-2 h-4 w-4" />
-              Quick Create
+              Board your Flight
             </Link>
           </Button>
 

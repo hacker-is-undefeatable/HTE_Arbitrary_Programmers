@@ -60,7 +60,7 @@ function QuizPartyModal({
   const [serverId, setServerId] = useState<string | null>(null);
   const [inviteCode, setInviteCode] = useState('');
   const [participantId, setParticipantId] = useState<string | null>(null);
-  const [guestTagDataUri, setGuestTagDataUri] = useState<string | null>(null);
+  const [, setGuestTagDataUri] = useState<string | null>(null);
   const [isGuest, setIsGuest] = useState(false);
   const [leaderboard, setLeaderboard] = useState<Array<{ display_name: string; guest: boolean; guest_tag_data_uri?: string; score: number }>>([]);
   const [quizId, setQuizId] = useState<string | null>(null);
@@ -73,12 +73,17 @@ function QuizPartyModal({
   } | null>(null);
   const [answerSent, setAnswerSent] = useState(false);
   const [explanation, setExplanation] = useState<string | null>(null);
-  const [correctAnswerText, setCorrectAnswerText] = useState<string | null>(null);
   const [questionTimeRemaining, setQuestionTimeRemaining] = useState(0);
   const [configError, setConfigError] = useState('');
   const [loading, setLoading] = useState(false);
   const [explainLoading, setExplainLoading] = useState<number | null>(null);
   const [detailedExplain, setDetailedExplain] = useState<string | null>(null);
+  const [detailedExplainForQuestion, setDetailedExplainForQuestion] = useState<number | null>(null);
+  const [endedResults, setEndedResults] = useState<Record<number, { choiceIndex: number; correct: boolean }> | null>(null);
+  const [expandedQuestion, setExpandedQuestion] = useState<number | null>(null);
+  const [endedQuestionDetails, setEndedQuestionDetails] = useState<Record<number, { question_text: string; choices: string[]; correct_choice_index: number }>>({});
+  const [lastSubmittedAnswer, setLastSubmittedAnswer] = useState<{ choiceIndex: number; correct: boolean; pointsEarned: number } | null>(null);
+  const [revealedQuestionDetails, setRevealedQuestionDetails] = useState<{ choices: string[]; correct_choice_index: number } | null>(null);
   const [statusPollTick, setStatusPollTick] = useState(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -97,7 +102,8 @@ function QuizPartyModal({
     if (lastQuestionIndexRef.current !== null && lastQuestionIndexRef.current !== idx) {
       setAnswerSent(false);
       setExplanation(null);
-      setCorrectAnswerText(null);
+      setLastSubmittedAnswer(null);
+      setRevealedQuestionDetails(null);
       setQuestionTimeRemaining(30);
       timeoutHandledForQuestionRef.current = null;
       explanationRevealedForQuestionRef.current = null;
@@ -148,7 +154,23 @@ function QuizPartyModal({
     prevQuestionTimeRemainingRef.current = 0;
     explanationRevealedForQuestionRef.current = null;
     everyoneAnsweredConfirmedForRef.current = null;
+    setEndedResults(null);
+    setExpandedQuestion(null);
+    setEndedQuestionDetails({});
+    setDetailedExplainForQuestion(null);
+    setLastSubmittedAnswer(null);
+    setRevealedQuestionDetails(null);
   }, [open, joinOnly]);
+
+  // When quiz ends, fetch this participant's results (correct/incorrect per question) for the dropdown summary.
+  useEffect(() => {
+    if (step !== 'ended' || !serverId || !participantId) return;
+    fetch(`/api/quiz/results?server_id=${encodeURIComponent(serverId)}&participant_id=${encodeURIComponent(participantId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.answers) setEndedResults(data.answers);
+      });
+  }, [step, serverId, participantId]);
 
   useEffect(() => {
     if (!open || !serverId) return;
@@ -164,7 +186,7 @@ function QuizPartyModal({
           return;
         }
         // Ignore stale poll: we may have optimistically advanced (e.g. host clicked Next); don't overwrite with older question
-        if (s.current_question_index < lastQuestionIndexRef.current) return;
+        if (lastQuestionIndexRef.current != null && s.current_question_index < lastQuestionIndexRef.current) return;
         setStatus({
           current_question_index: s.current_question_index,
           total_questions: s.total_questions,
@@ -214,6 +236,7 @@ function QuizPartyModal({
     if (timeoutHandledForQuestionRef.current === qIndex) return;
     timeoutHandledForQuestionRef.current = qIndex;
     setAnswerSent(true);
+    setLastSubmittedAnswer({ choiceIndex: 0, correct: false, pointsEarned: 0 });
     const sid = serverId;
     const qId = quizId;
     fetch('/api/quiz/answer', {
@@ -236,7 +259,7 @@ function QuizPartyModal({
             setExplanation(q.explanation ?? null);
             const choices = Array.isArray(q.choices) ? q.choices : [];
             const idx = Number(q.correct_choice_index);
-            setCorrectAnswerText(choices[idx] ?? null);
+            setRevealedQuestionDetails({ choices, correct_choice_index: idx });
           }
         });
     }
@@ -276,7 +299,7 @@ function QuizPartyModal({
           setExplanation(q.explanation ?? null);
           const choices = Array.isArray(q.choices) ? q.choices : [];
           const idx = Number(q.correct_choice_index);
-          setCorrectAnswerText(choices[idx] ?? null);
+          setRevealedQuestionDetails({ choices, correct_choice_index: idx });
         }
       });
   }, [step, answerSent, status?.participant_count, status?.answered_count, status?.current_question_index, quizId, statusPollTick]);
@@ -334,7 +357,6 @@ function QuizPartyModal({
       setQuestionTimeRemaining(30);
       setAnswerSent(false);
       setExplanation(null);
-      setCorrectAnswerText(null);
     } catch (e) {
       setConfigError(e instanceof Error ? e.message : 'Failed to start quiz');
     } finally {
@@ -392,7 +414,7 @@ function QuizPartyModal({
     const timeMs = (30 - questionTimeRemaining) * 1000;
     const qIndex = status?.current_question_index ?? 0;
     try {
-      await fetch('/api/quiz/answer', {
+      const res = await fetch('/api/quiz/answer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -403,6 +425,14 @@ function QuizPartyModal({
           time_ms: timeMs,
         }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setLastSubmittedAnswer({
+          choiceIndex,
+          correct: Boolean(data.correct),
+          pointsEarned: Number(data.points_earned ?? 0),
+        });
+      }
     } catch (_) {}
     fetchLeaderboard(serverId);
   };
@@ -424,7 +454,8 @@ function QuizPartyModal({
         setQuestionTimeRemaining(30);
         setAnswerSent(false);
         setExplanation(null);
-        setCorrectAnswerText(null);
+        setLastSubmittedAnswer(null);
+        setRevealedQuestionDetails(null);
         // Optimistically bump question index so we don't re-show the previous question
         setStatus((prev) =>
           prev ? { ...prev, current_question_index: nextIndex, current_question: undefined } : null
@@ -464,10 +495,29 @@ function QuizPartyModal({
     } catch (_) {}
   };
 
+  // When a question row is expanded, fetch its details (question text, choices) if not cached.
+  useEffect(() => {
+    if (expandedQuestion == null || !quizId || endedQuestionDetails[expandedQuestion]) return;
+    fetch(`/api/quiz/question/${quizId}/${expandedQuestion}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((q) => {
+        if (q)
+          setEndedQuestionDetails((prev) => ({
+            ...prev,
+            [expandedQuestion]: {
+              question_text: q.question_text,
+              choices: Array.isArray(q.choices) ? q.choices : [],
+              correct_choice_index: Number(q.correct_choice_index ?? 0),
+            },
+          }));
+      });
+  }, [expandedQuestion, quizId]);
+
   const handleExplain = async (qIndex: number) => {
     if (!quizId || !userId) return;
     setExplainLoading(qIndex);
     setDetailedExplain(null);
+    setDetailedExplainForQuestion(null);
     try {
       const res = await fetch(`/api/quiz/explain/${quizId}/${qIndex}`, {
         method: 'POST',
@@ -475,7 +525,10 @@ function QuizPartyModal({
         body: JSON.stringify({ user_id: userId }),
       });
       const data = await res.json();
-      if (res.ok) setDetailedExplain(data.detailed_explanation || '');
+      if (res.ok) {
+        setDetailedExplain(data.detailed_explanation || '');
+        setDetailedExplainForQuestion(qIndex);
+      }
     } catch (_) {}
     setExplainLoading(null);
   };
@@ -650,8 +703,39 @@ function QuizPartyModal({
             )}
             {explanation && status?.current_question_index === explanationRevealedForQuestionRef.current && (
               <>
-                {correctAnswerText && (
-                  <p className="text-sm font-medium">Correct answer: {correctAnswerText}</p>
+                {lastSubmittedAnswer != null && (
+                  <p className="text-sm font-medium">
+                    {lastSubmittedAnswer.correct ? (
+                      <span className="text-green-600 dark:text-green-400">Correct!</span>
+                    ) : (
+                      <span className="text-red-600 dark:text-red-400">Incorrect</span>
+                    )}
+                    {' · '}
+                    <span className="text-muted-foreground">
+                      {lastSubmittedAnswer.pointsEarned > 0
+                        ? `+${lastSubmittedAnswer.pointsEarned} pts this question`
+                        : '0 pts this question'}
+                    </span>
+                  </p>
+                )}
+                {revealedQuestionDetails && (
+                  <ul className="space-y-1">
+                    {revealedQuestionDetails.choices.map((choice, cIdx) => {
+                      const isCorrect = cIdx === revealedQuestionDetails.correct_choice_index;
+                      const isUserChoice = lastSubmittedAnswer && cIdx === lastSubmittedAnswer.choiceIndex;
+                      return (
+                        <li
+                          key={cIdx}
+                          className={`py-1 px-2 rounded text-sm ${isCorrect ? 'bg-green-500/10 text-green-700 dark:text-green-400' : ''} ${isUserChoice && !isCorrect ? 'bg-red-500/10 text-red-700 dark:text-red-400' : ''}`}
+                        >
+                          {choice}
+                          {isCorrect && ' ✓'}
+                          {isUserChoice && !isCorrect && ' (your answer)'}
+                          {isUserChoice && isCorrect && ' (your answer)'}
+                        </li>
+                      );
+                    })}
+                  </ul>
                 )}
                 <p className="text-sm text-muted-foreground">Explanation:</p>
                 <p className="text-sm">{explanation}</p>
@@ -695,22 +779,77 @@ function QuizPartyModal({
             </div>
             <Button className="w-full" onClick={handleDownload}>Download quiz (JSON)</Button>
             {userId && (
-              <>
-                <Button variant="outline" className="w-full" onClick={handleSave}>Save to my account</Button>
-                <p className="text-sm text-muted-foreground">Request a deeper explanation for any question (logged-in only):</p>
-                {status && Array.from({ length: status.total_questions }, (_, i) => i).map((qIndex) => (
-                  <button
-                    key={qIndex}
-                    type="button"
-                    className="block w-full rounded border px-2 py-1 text-left text-sm"
-                    onClick={() => handleExplain(qIndex)}
-                    disabled={explainLoading === qIndex}
-                  >
-                    Explain question {qIndex + 1} {explainLoading === qIndex ? '…' : ''}
-                  </button>
-                ))}
-                {detailedExplain && <div className="rounded border bg-muted/20 p-2 text-sm whitespace-pre-wrap">{detailedExplain}</div>}
-              </>
+              <Button variant="outline" className="w-full" onClick={handleSave}>Save to my account</Button>
+            )}
+            {status && (
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Review questions:</p>
+                {Array.from({ length: status.total_questions }, (_, i) => i).map((qIndex) => {
+                  const result = endedResults?.[qIndex];
+                  const correctLabel = result ? (result.correct ? 'Correct' : 'Incorrect') : '—';
+                  const isExpanded = expandedQuestion === qIndex;
+                  const details = endedQuestionDetails[qIndex];
+                  return (
+                    <div key={qIndex} className="rounded border overflow-hidden">
+                      <button
+                        type="button"
+                        className="w-full flex items-center justify-between gap-2 rounded-none border-0 bg-muted/20 px-3 py-2 text-left text-sm hover:bg-muted/40"
+                        onClick={() => setExpandedQuestion((prev) => (prev === qIndex ? null : qIndex))}
+                      >
+                        <span>Question {qIndex + 1}</span>
+                        <span className={result?.correct ? 'text-green-600' : result ? 'text-red-600' : 'text-muted-foreground'}>
+                          {correctLabel}
+                        </span>
+                        <span className="text-muted-foreground">{isExpanded ? '▼' : '▶'}</span>
+                      </button>
+                      {isExpanded && (
+                        <div className="border-t bg-background p-3 space-y-3 text-sm">
+                          {details ? (
+                            <>
+                              <p className="font-medium">{details.question_text}</p>
+                              <ul className="space-y-1">
+                                {details.choices.map((choice, cIdx) => {
+                                  const isCorrect = cIdx === details.correct_choice_index;
+                                  const isUserChoice = result && cIdx === result.choiceIndex;
+                                  return (
+                                    <li
+                                      key={cIdx}
+                                      className={`py-1 px-2 rounded ${isCorrect ? 'bg-green-500/10 text-green-700 dark:text-green-400' : ''} ${isUserChoice && !isCorrect ? 'bg-red-500/10 text-red-700 dark:text-red-400' : ''}`}
+                                    >
+                                      {choice}
+                                      {isCorrect && ' ✓'}
+                                      {isUserChoice && !isCorrect && ' (your answer)'}
+                                      {isUserChoice && isCorrect && ' (your answer)'}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </>
+                          ) : (
+                            <p className="text-muted-foreground">Loading question…</p>
+                          )}
+                          {userId && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full"
+                                onClick={() => handleExplain(qIndex)}
+                                disabled={explainLoading === qIndex}
+                              >
+                                {explainLoading === qIndex ? 'Generating…' : 'Generate AI explanation'}
+                              </Button>
+                              {detailedExplainForQuestion === qIndex && detailedExplain && (
+                                <div className="rounded border bg-muted/20 p-2 text-sm whitespace-pre-wrap">{detailedExplain}</div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         )}
@@ -724,7 +863,7 @@ export { QuizPartyModal };
 export default function LectureSessionDetailPage() {
   const params = useParams<{ sessionId: string }>();
   const sessionId = params?.sessionId;
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -846,13 +985,25 @@ export default function LectureSessionDetailPage() {
           </Link>
         </div>
 
-        {loading ? (
+        {authLoading || loading ? (
           <Card>
-            <CardContent className="p-6 text-sm text-muted-foreground">Loading lecture session...</CardContent>
+            <CardContent className="p-6 text-sm text-muted-foreground">
+              {authLoading ? 'Loading…' : 'Loading lecture session...'}
+            </CardContent>
           </Card>
         ) : error ? (
           <Card>
             <CardContent className="p-6 text-sm text-red-600">{error}</CardContent>
+          </Card>
+        ) : !user?.id ? (
+          <Card>
+            <CardContent className="p-6 text-sm text-muted-foreground">
+              Please sign in to view this lecture.
+            </CardContent>
+          </Card>
+        ) : !sessionId ? (
+          <Card>
+            <CardContent className="p-6 text-sm text-muted-foreground">Invalid lecture session.</CardContent>
           </Card>
         ) : session ? (
           <>

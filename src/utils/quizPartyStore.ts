@@ -487,6 +487,29 @@ export async function getParticipant(
   return list.find((p) => p.id === participantId) ?? null;
 }
 
+/** Get a participant's answer for a single question (for results review). */
+export async function getParticipantAnswer(
+  serverId: string,
+  participantId: string,
+  questionIndex: number
+): Promise<{ choiceIndex: number; correct: boolean } | null> {
+  const table = getTableName();
+  const client = getClient();
+  const sk = `ANSWER#${questionIndex}#${participantId}`;
+  const res = await client.send(
+    new GetItemCommand({
+      TableName: table,
+      Key: marshall({ pk: `SERVER#${serverId}`, sk }),
+    })
+  );
+  if (!res.Item) return null;
+  const r = unmarshall(res.Item) as Record<string, unknown>;
+  return {
+    choiceIndex: Number(r.choiceIndex ?? 0),
+    correct: Boolean(r.correct),
+  };
+}
+
 /** Mark quiz as saved for user. */
 export async function saveQuizForUser(
   serverId: string,

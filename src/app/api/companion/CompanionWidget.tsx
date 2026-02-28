@@ -54,7 +54,7 @@ export default function CompanionWidget() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content: "Hi! I'm your Live2D study companion 🌟 Ask me about your lectures, quizzes, or revision plans!",
+      content: "Hi! I'm your Live2D study companion. I can answer anything about lectures, quizzes, revision plans, and even mental health.",
     },
   ]);
   const [sending, setSending] = useState(false);
@@ -144,8 +144,8 @@ export default function CompanionWidget() {
 
     const hints = [
       'Need help? Click me!',
-      'Ask me study questions 📚',
-      'Let’s revise together ✨',
+      'Ask me study questions',
+      'Let’s revise together',
     ];
 
     let index = 0;

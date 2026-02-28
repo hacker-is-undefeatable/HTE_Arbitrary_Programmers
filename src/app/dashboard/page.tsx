@@ -3,11 +3,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { useProfile, useMasteryScores } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { calculateAverageMastery } from '@/utils/masteryEngine';
-import { getTodayRevisionItems } from '@/utils/revisionEngine';
 import Link from 'next/link';
 import {
   Circle,
@@ -16,26 +14,17 @@ import {
   UserCircle,
   LogOut,
   Plus,
-  Columns,
-  ChevronDown,
-  Check,
-  Clock3,
 } from 'lucide-react';
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user, loading: authLoading, signOut } = useAuth();
   const { profile, loading: profileLoading } = useProfile(user?.id || null);
-  const { scores, loading: scoresLoading } = useMasteryScores(user?.id || null);
-  const [revisionItems, setRevisionItems] = useState<any[]>([]);
   const [lectureSessions, setLectureSessions] = useState<any[]>([]);
   const [revisionTimeLogs, setRevisionTimeLogs] = useState<any[]>([]);
 
-  const avgMastery = useMemo(() => calculateAverageMastery(scores), [scores]);
-  const topScores = useMemo(() => [...scores].sort((left, right) => right.mastery_score - left.mastery_score).slice(0, 6), [scores]);
-
   const revisionChart = useMemo(() => {
-    const days = 14;
+    const days = 7;
     const buckets: Record<string, number> = {};
 
     for (let i = days - 1; i >= 0; i--) {
@@ -103,28 +92,6 @@ export default function DashboardPage() {
   }, [lectureSessions]);
 
   useEffect(() => {
-    if (user?.id && !scoresLoading) {
-      const fetchRevision = async () => {
-        try {
-          const res = await fetch(`/api/revision-schedule?userId=${user.id}`);
-          if (!res.ok) {
-            console.warn('Failed to fetch revision schedule:', res.status);
-            setRevisionItems([]);
-            return;
-          }
-          const data = await res.json();
-          const today = getTodayRevisionItems(data);
-          setRevisionItems(today);
-        } catch (error) {
-          console.warn('Error fetching revision schedule:', error);
-          setRevisionItems([]);
-        }
-      };
-      fetchRevision();
-    }
-  }, [user?.id, scoresLoading]);
-
-  useEffect(() => {
     if (!user?.id) return;
 
     const fetchSessionData = async () => {
@@ -162,7 +129,7 @@ export default function DashboardPage() {
     router.push('/login');
   };
 
-  if (authLoading || profileLoading || scoresLoading) {
+  if (authLoading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -271,8 +238,8 @@ export default function DashboardPage() {
                     {lecture.sessionId ? (
                       <Link href={`/lecture-notes/${lecture.sessionId}`} className="block rounded-xl transition-colors hover:bg-muted/30">
                         <CardHeader className="space-y-2 p-4">
-                          <CardDescription>{lecture.label}</CardDescription>
-                          <CardTitle className="text-3xl font-semibold tracking-tight">{lecture.value}</CardTitle>
+                          <CardDescription className="text-lg font-semibold text-foreground">{lecture.label}</CardDescription>
+                          <CardTitle className="text-base font-medium tracking-normal text-muted-foreground">{lecture.value}</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-1 p-4 pt-0 text-sm">
                           <p className="font-medium">{lecture.note}</p>
@@ -282,8 +249,8 @@ export default function DashboardPage() {
                     ) : (
                       <>
                         <CardHeader className="space-y-2 p-4">
-                          <CardDescription>{lecture.label}</CardDescription>
-                          <CardTitle className="text-3xl font-semibold tracking-tight">{lecture.value}</CardTitle>
+                          <CardDescription className="text-lg font-semibold text-foreground">{lecture.label}</CardDescription>
+                          <CardTitle className="text-base font-medium tracking-normal text-muted-foreground">{lecture.value}</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-1 p-4 pt-0 text-sm">
                           <p className="font-medium">{lecture.note}</p>
@@ -317,84 +284,13 @@ export default function DashboardPage() {
                     </svg>
                   </div>
 
-                  <div className="grid grid-cols-7 gap-2 text-center text-xs text-muted-foreground sm:grid-cols-14">
+                  <div className="grid grid-cols-7 gap-2 text-center text-xs text-muted-foreground">
                     {revisionChart.labels.map((label) => (
                       <span key={label}>{label}</span>
                     ))}
                   </div>
                 </CardContent>
               </Card>
-
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="inline-flex items-center gap-1 rounded-md border bg-muted/20 p-1 text-sm">
-                    <Link href="/lecture-notes" className="rounded-sm bg-background px-3 py-1 shadow-sm">Learning</Link>
-                    <Link href="/quizzes" className="rounded-sm px-3 py-1 text-muted-foreground">Quizzes</Link>
-                    <Link href="/flash-cards" className="rounded-sm px-3 py-1 text-muted-foreground">Flash cards</Link>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" className="h-9">
-                      <Columns className="mr-2 h-4 w-4" />
-                      Customize Columns
-                      <ChevronDown className="ml-2 h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" className="h-9">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Section
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="overflow-hidden rounded-xl border">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/30 text-muted-foreground">
-                      <tr className="text-left">
-                        <th className="px-3 py-2 font-medium">Header</th>
-                        <th className="px-3 py-2 font-medium">Section Type</th>
-                        <th className="px-3 py-2 font-medium">Status</th>
-                        <th className="px-3 py-2 font-medium">Target</th>
-                        <th className="px-3 py-2 font-medium">Limit</th>
-                        <th className="px-3 py-2 font-medium">Reviewer</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(topScores.length > 0 ? topScores : [{ topic: 'Profile setup pending', mastery_score: avgMastery }]).map((score, index) => (
-                        <tr key={`${score.topic}-${index}`} className="border-t">
-                          <td className="px-3 py-3">{score.topic}</td>
-                          <td className="px-3 py-3">
-                            <span className="rounded-full border px-2 py-1 text-xs">{profile.role === 'high_school' ? 'Math' : 'Python'}</span>
-                          </td>
-                          <td className="px-3 py-3">
-                            <span className="inline-flex items-center rounded-full border px-2 py-1 text-xs">
-                              {score.mastery_score >= 70 ? (
-                                <>
-                                  <Check className="mr-1 h-3 w-3" />
-                                  Completed
-                                </>
-                              ) : (
-                                <>
-                                  <Clock3 className="mr-1 h-3 w-3" />
-                                  In Process
-                                </>
-                              )}
-                            </span>
-                          </td>
-                          <td className="px-3 py-3">{score.mastery_score}%</td>
-                          <td className="px-3 py-3">100%</td>
-                          <td className="px-3 py-3">{profile.name}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {revisionItems.length > 0 && (
-                  <div className="rounded-xl border bg-muted/20 p-3 text-sm text-muted-foreground">
-                    Next revision queue: {revisionItems.slice(0, 3).map((item) => item.topic).join(' • ')}
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         </main>

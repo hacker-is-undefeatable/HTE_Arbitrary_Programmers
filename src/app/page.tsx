@@ -3,151 +3,106 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { PublicShell } from '@/components/layout/public-shell';
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
-      {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-md border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <div className="text-2xl font-bold text-primary">
-            ✨ DualPath AI
-          </div>
-          <div className="space-x-4">
-            <Link href="/login">
-              <Button variant="ghost">Sign In</Button>
-            </Link>
-            <Link href="/signup">
-              <Button>Get Started</Button>
-            </Link>
-          </div>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <div className="pt-32 pb-20 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-5xl sm:text-6xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-6">
-            Learn Smarter with AI
-          </h1>
-          <p className="text-xl text-slate-600 mb-8">
-            Personalized learning paths adapted to your level. Master any subject with AI-powered explanations and intelligent practice.
-          </p>
-          <div className="space-x-4">
-            <Link href="/signup">
-              <Button size="lg" className="rounded-full">
-                Start Learning Free
-              </Button>
-            </Link>
-            <Link href="#features">
-              <Button size="lg" variant="outline" className="rounded-full">
-                Learn More
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Features Section */}
-      <div id="features" className="py-20 px-4 bg-white/50">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-4xl font-bold text-center mb-12">Powerful Features</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            {features.map((feature) => (
-              <Card key={feature.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="text-4xl mb-2">{feature.icon}</div>
-                  <CardTitle>{feature.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="text-base">
-                    {feature.description}
-                  </CardDescription>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* How It Works */}
-      <div className="py-20 px-4">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-4xl font-bold text-center mb-12">How It Works</h2>
-          <div className="space-y-6">
-            {steps.map((step, i) => (
-              <div key={i} className="flex gap-6">
-                <div className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center font-bold flex-shrink-0">
-                  {i + 1}
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold mb-2">{step.title}</h3>
-                  <p className="text-slate-600">{step.description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* CTA Section */}
-      <div className="py-20 px-4 bg-gradient-to-r from-blue-600 to-purple-600">
-        <div className="max-w-4xl mx-auto text-center text-white">
-          <h2 className="text-4xl font-bold mb-6">Ready to Transform Your Learning?</h2>
-          <p className="text-xl mb-8">Join students who are mastering their subjects with AI-powered learning.</p>
+    <PublicShell
+      title="Learn Smarter with AI"
+      subtitle="Personalized learning paths adapted to your level"
+      rightSlot={
+        <div className="space-x-2">
+          <Link href="/login">
+            <Button variant="ghost" size="sm">Sign In</Button>
+          </Link>
           <Link href="/signup">
-            <Button size="lg" variant="outline" className="rounded-full">
-              Start Free Today
-            </Button>
+            <Button size="sm">Get Started</Button>
           </Link>
         </div>
-      </div>
-
-      {/* Footer */}
-      <footer className="bg-slate-900 text-white py-12 px-4">
-        <div className="max-w-6xl mx-auto text-center">
-          <p className="mb-2">🚀 DualPath AI - Hackathon Edition</p>
-          <p className="text-slate-400">Building the future of personalized education</p>
+      }
+    >
+      <div className="space-y-8">
+        <div className="rounded-xl border bg-muted/20 p-6 sm:p-8">
+          <h2 className="text-3xl font-bold mb-3">Master any subject with AI-powered guidance</h2>
+          <p className="text-muted-foreground mb-6">
+            Personalized explanations, adaptive questions, and smart revision plans in one dashboard-like workspace.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/signup">
+              <Button>Start Learning Free</Button>
+            </Link>
+            <Link href="/login">
+              <Button variant="outline">I already have an account</Button>
+            </Link>
+          </div>
         </div>
-      </footer>
-    </div>
+
+        <div className="grid md:grid-cols-3 gap-4">
+          {features.map((feature) => (
+            <Card key={feature.id} className="shadow-none">
+              <CardHeader>
+                <div className="text-3xl mb-1">{feature.icon}</div>
+                <CardTitle className="text-lg">{feature.title}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>{feature.description}</CardDescription>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="grid gap-3">
+          {steps.map((step, i) => (
+            <div key={i} className="rounded-lg border bg-background p-4 flex gap-3">
+              <div className="h-7 w-7 rounded-full bg-primary text-primary-foreground text-xs font-semibold flex items-center justify-center">
+                {i + 1}
+              </div>
+              <div>
+                <p className="font-medium">{step.title}</p>
+                <p className="text-sm text-muted-foreground">{step.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </PublicShell>
   );
 }
 
 const features = [
   {
     id: 1,
-    icon: '📊',
+    icon: 'AL',
     title: 'Adaptive Learning',
     description: 'Questions adjust to your level automatically. Easy for beginners, challenging for experts.',
   },
   {
     id: 2,
-    icon: '🤖',
+    icon: 'AI',
     title: 'AI Explanations',
     description: 'Get instant explanations for mistakes with personalized feedback based on your style.',
   },
   {
     id: 3,
-    icon: '📈',
+    icon: 'TP',
     title: 'Track Progress',
     description: 'Monitor your mastery across topics with beautiful dashboards and revision schedules.',
   },
   {
     id: 4,
-    icon: '💡',
+    icon: 'SH',
     title: 'Smart Hints',
     description: 'Get hints when stuck without spoiling the answer. Learn by deduction.',
   },
   {
     id: 5,
-    icon: '🐍',
+    icon: 'PT',
     title: 'Python Tutor',
     description: 'Interactive coding challenges with AI-powered debugging assistance.',
   },
   {
     id: 6,
-    icon: '🎯',
+    icon: 'GF',
     title: 'Goal-Focused',
     description: 'Personalized roadmaps based on your learning goals and role.',
   },
@@ -155,8 +110,8 @@ const features = [
 
 const steps = [
   {
-    title: 'Take Diagnostic Quiz',
-    description: 'Answer 5 questions to establish your baseline knowledge for each subject.',
+    title: 'Set Up Your Profile',
+    description: 'Choose your role and learning style so we can personalize your experience.',
   },
   {
     title: 'Get Personalized Path',

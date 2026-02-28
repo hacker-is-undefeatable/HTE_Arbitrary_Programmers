@@ -18,8 +18,6 @@ import {
   Plus,
   Columns,
   ChevronDown,
-  TrendingUp,
-  TrendingDown,
   Check,
   Clock3,
 } from 'lucide-react';
@@ -31,91 +29,83 @@ const MENU_ITEMS = [
   { label: 'Flash cards', href: '/flash-cards' },
 ];
 
-const CHART_X_LABELS = ['Apr 7', 'Apr 13', 'Apr 19', 'Apr 26', 'May 2', 'May 8', 'May 14', 'May 21', 'May 28', 'Jun 3', 'Jun 9', 'Jun 15', 'Jun 22', 'Jun 30'];
-
 export default function DashboardPage() {
   const router = useRouter();
   const { user, loading: authLoading, signOut } = useAuth();
   const { profile, loading: profileLoading } = useProfile(user?.id || null);
   const { scores, loading: scoresLoading } = useMasteryScores(user?.id || null);
   const [revisionItems, setRevisionItems] = useState<any[]>([]);
+  const [lectureSessions, setLectureSessions] = useState<any[]>([]);
+  const [revisionTimeLogs, setRevisionTimeLogs] = useState<any[]>([]);
 
   const avgMastery = useMemo(() => calculateAverageMastery(scores), [scores]);
   const topScores = useMemo(() => [...scores].sort((left, right) => right.mastery_score - left.mastery_score).slice(0, 6), [scores]);
 
-  const chartSeries = useMemo(() => {
-    const points = Array.from({ length: 30 }, (_, index) => {
-      const base = scores[index % (scores.length || 1)]?.mastery_score ?? avgMastery;
-      const wave = Math.sin(index * 1.4) * 12 + Math.cos(index * 0.45) * 8;
-      const value = Math.max(20, Math.min(95, Math.round(base + wave)));
-      return value;
+  const revisionChart = useMemo(() => {
+    const days = 14;
+    const buckets: Record<string, number> = {};
+
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const key = date.toISOString().slice(0, 10);
+      buckets[key] = 0;
+    }
+
+    revisionTimeLogs.forEach((log) => {
+      const key = String(log.started_at || '').slice(0, 10);
+      if (key in buckets) {
+        buckets[key] += Number(log.duration_seconds || 0);
+      }
     });
 
-    const max = Math.max(...points, 100);
+    const labels = Object.keys(buckets).map((key) => {
+      const date = new Date(key);
+      return `${date.toLocaleString('en-US', { month: 'short' })} ${date.getDate()}`;
+    });
+
+    const hours = Object.values(buckets).map((seconds) => Number((seconds / 3600).toFixed(2)));
+    const points = hours.map((value) => Math.max(0.05, value));
+
+    const totalHours = Number((revisionTimeLogs.reduce((sum, item) => sum + Number(item.duration_seconds || 0), 0) / 3600).toFixed(2));
+
+    const max = Math.max(...points, 1);
     const desktopPoints = points
       .map((value, index) => {
         const x = (index / (points.length - 1)) * 100;
-        const y = 100 - (value / max) * 85;
-        return `${x},${y}`;
-      })
-      .join(' ');
-
-    const mobilePoints = points
-      .map((value, index) => {
-        const x = (index / (points.length - 1)) * 100;
-        const y = 100 - (value / max) * 70;
+        const y = 100 - (value / max) * 80;
         return `${x},${y}`;
       })
       .join(' ');
 
     return {
+      labels,
+      points,
+      totalHours,
       desktopArea: `0,100 ${desktopPoints} 100,100`,
       desktopLine: desktopPoints,
-      mobileArea: `0,100 ${mobilePoints} 100,100`,
-      mobileLine: mobilePoints,
     };
-  }, [scores, avgMastery]);
+  }, [revisionTimeLogs]);
 
-  const kpiCards = useMemo(() => {
-    const revenue = (avgMastery * 17.86 + scores.length * 24).toFixed(2);
-    const customerDelta = avgMastery > 60 ? '+12.5%' : '-8.1%';
-    const growthDelta = revisionItems.length > 0 ? '+4.5%' : '+1.3%';
+  const lectureCards = useMemo(() => {
+    const cards = lectureSessions.slice(0, 4).map((session) => ({
+      label: session.lecture_title || 'Untitled Lecture',
+      value: `${(session.generated_quizzes || []).length} quizzes`,
+      note: `${(session.generated_flashcards || []).length} flashcards generated`,
+      sub: `Created ${new Date(session.created_at).toLocaleDateString()}`,
+    }));
 
-    return [
-      {
-        label: 'Total Revenue',
-        value: `$${revenue}`,
-        delta: customerDelta,
-        note: 'Trending up this month',
-        sub: 'Visitors for the last 6 months',
-        trendUp: customerDelta.startsWith('+'),
-      },
-      {
-        label: 'New Customers',
-        value: `${scores.length * 13 + 10}`,
-        delta: '-20%',
-        note: 'Down 20% this period',
-        sub: 'Acquisition needs attention',
-        trendUp: false,
-      },
-      {
-        label: 'Active Accounts',
-        value: `${Math.max(scores.length * 127, 1200)}`,
-        delta: '+12.5%',
-        note: 'Strong user retention',
-        sub: 'Engagement exceed targets',
-        trendUp: true,
-      },
-      {
-        label: 'Growth Rate',
-        value: `${Math.max(avgMastery / 18, 2).toFixed(1)}%`,
-        delta: growthDelta,
-        note: 'Steady performance increase',
-        sub: 'Meets growth projections',
-        trendUp: true,
-      },
-    ];
-  }, [avgMastery, scores.length, revisionItems.length]);
+    while (cards.length < 4) {
+      cards.push({
+        label: 'No lecture yet',
+        value: '0 quizzes',
+        note: 'Create a lecture using Quick Create',
+        sub: 'Saved sessions from Supabase will appear here',
+      });
+    }
+
+    return cards;
+  }, [lectureSessions]);
 
   useEffect(() => {
     if (user?.id && !scoresLoading) {
@@ -138,6 +128,33 @@ export default function DashboardPage() {
       fetchRevision();
     }
   }, [user?.id, scoresLoading]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const fetchSessionData = async () => {
+      try {
+        const [sessionsRes, revisionTimeRes] = await Promise.all([
+          fetch(`/api/quick-create?userId=${user.id}`),
+          fetch(`/api/revision-time?userId=${user.id}`),
+        ]);
+
+        if (sessionsRes.ok) {
+          const sessions = await sessionsRes.json();
+          setLectureSessions(Array.isArray(sessions) ? sessions : []);
+        }
+
+        if (revisionTimeRes.ok) {
+          const revisionLogs = await revisionTimeRes.json();
+          setRevisionTimeLogs(Array.isArray(revisionLogs) ? revisionLogs : []);
+        }
+      } catch (error) {
+        console.warn('Failed to fetch dashboard session data:', error);
+      }
+    };
+
+    fetchSessionData();
+  }, [user?.id]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -172,11 +189,11 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle>Welcome to your dashboard</CardTitle>
             <CardDescription>
-              Complete your profile first, then take your diagnostic assessment to personalize your learning path.
+              Complete your profile first to personalize your learning path.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 sm:flex-row">
-            <Link href="/diagnostic-setup" className="w-full sm:w-auto">
+            <Link href="/settings" className="w-full sm:w-auto">
               <Button className="w-full">Set Up Profile</Button>
             </Link>
           </CardContent>
@@ -196,9 +213,11 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          <Button className="mt-6 justify-start rounded-lg bg-foreground text-background hover:bg-foreground/90">
-            <Plus className="mr-2 h-4 w-4" />
-            Quick Create
+          <Button asChild className="mt-6 justify-start rounded-lg bg-foreground text-background hover:bg-foreground/90">
+            <Link href="/quick-create">
+              <Plus className="mr-2 h-4 w-4" />
+              Quick Create
+            </Link>
           </Button>
 
           <div className="mt-4 space-y-1">
@@ -258,27 +277,21 @@ export default function DashboardPage() {
         <main className="w-full p-4 lg:p-5">
           <div className="rounded-xl border bg-card">
             <div className="flex items-center justify-between border-b px-4 py-3 sm:px-6">
-              <h1 className="text-sm font-medium sm:text-base">Documents</h1>
-              <div className="text-sm text-muted-foreground">GitHub</div>
+              <h1 className="text-sm font-medium sm:text-base">Dashboards</h1>
+              <div className="text-sm text-muted-foreground">???</div>
             </div>
 
             <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {kpiCards.map((metric) => (
-                  <Card key={metric.label} className="rounded-xl shadow-none">
+                {lectureCards.map((lecture, index) => (
+                  <Card key={`${lecture.label}-${index}`} className="rounded-xl shadow-none">
                     <CardHeader className="space-y-2 p-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <CardDescription>{metric.label}</CardDescription>
-                        <div className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs">
-                          {metric.trendUp ? <TrendingUp className="mr-1 h-3 w-3" /> : <TrendingDown className="mr-1 h-3 w-3" />}
-                          {metric.delta}
-                        </div>
-                      </div>
-                      <CardTitle className="text-4xl font-semibold tracking-tight">{metric.value}</CardTitle>
+                      <CardDescription>{lecture.label}</CardDescription>
+                      <CardTitle className="text-3xl font-semibold tracking-tight">{lecture.value}</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-1 p-4 pt-0 text-sm">
-                      <p className="font-medium">{metric.note}</p>
-                      <p className="text-muted-foreground">{metric.sub}</p>
+                      <p className="font-medium">{lecture.note}</p>
+                      <p className="text-muted-foreground">{lecture.sub}</p>
                     </CardContent>
                   </Card>
                 ))}
@@ -287,13 +300,11 @@ export default function DashboardPage() {
               <Card className="rounded-xl shadow-none">
                 <CardHeader className="flex flex-row items-start justify-between gap-3 p-4">
                   <div>
-                    <CardTitle className="text-xl">Total Visitors</CardTitle>
-                    <CardDescription>Total for the last 3 months</CardDescription>
+                    <CardTitle className="text-xl">Revision Time Spent</CardTitle>
+                    <CardDescription>Total revision hours tracked from your revision page sessions</CardDescription>
                   </div>
-                  <div className="inline-flex rounded-md border bg-muted/30 p-1 text-sm">
-                    <button type="button" className="rounded-sm bg-background px-3 py-1 font-medium shadow-sm">Last 3 months</button>
-                    <button type="button" className="rounded-sm px-3 py-1 text-muted-foreground">Last 30 days</button>
-                    <button type="button" className="rounded-sm px-3 py-1 text-muted-foreground">Last 7 days</button>
+                  <div className="inline-flex items-center rounded-md border bg-muted/30 px-3 py-1 text-sm font-medium">
+                    {revisionChart.totalHours} hours
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4 p-4 pt-0">
@@ -303,13 +314,13 @@ export default function DashboardPage() {
                       <line x1="0" y1="60" x2="100" y2="60" className="stroke-border" strokeWidth="0.3" />
                       <line x1="0" y1="40" x2="100" y2="40" className="stroke-border" strokeWidth="0.3" />
                       <line x1="0" y1="20" x2="100" y2="20" className="stroke-border" strokeWidth="0.3" />
-                      <polygon points={chartSeries.desktopArea} className="fill-foreground/15" />
-                      <polyline points={chartSeries.desktopLine} className="fill-none stroke-foreground/80" strokeWidth="0.5" />
+                      <polygon points={revisionChart.desktopArea} className="fill-foreground/15" />
+                      <polyline points={revisionChart.desktopLine} className="fill-none stroke-foreground/80" strokeWidth="0.5" />
                     </svg>
                   </div>
 
                   <div className="grid grid-cols-7 gap-2 text-center text-xs text-muted-foreground sm:grid-cols-14">
-                    {CHART_X_LABELS.map((label) => (
+                    {revisionChart.labels.map((label) => (
                       <span key={label}>{label}</span>
                     ))}
                   </div>
@@ -351,7 +362,7 @@ export default function DashboardPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {(topScores.length > 0 ? topScores : [{ topic: 'Diagnostic pending', mastery_score: avgMastery }]).map((score, index) => (
+                      {(topScores.length > 0 ? topScores : [{ topic: 'Profile setup pending', mastery_score: avgMastery }]).map((score, index) => (
                         <tr key={`${score.topic}-${index}`} className="border-t">
                           <td className="px-3 py-3">{score.topic}</td>
                           <td className="px-3 py-3">

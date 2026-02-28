@@ -251,6 +251,189 @@ Provide 8-10 key topics in logical order.`;
   }
 };
 
+/**
+ * Summarize a lecture transcript and supporting notes using Azure OpenAI
+ */
+export const summarizeLectureFromTranscript = async (
+  lectureTitle: string,
+  transcript: string,
+  notes?: string
+): Promise<string> => {
+  const transcriptSnippet = transcript.length > 18000 ? `${transcript.slice(0, 18000)}...` : transcript;
+  const notesSnippet = notes
+    ? notes.length > 6000
+      ? `${notes.slice(0, 6000)}...`
+      : notes
+    : '';
+
+  const prompt = `You are an expert teaching assistant. Create a concise, high-quality lecture summary.
+
+Lecture Title: ${lectureTitle}
+
+Transcript:
+${transcriptSnippet || 'No transcript provided.'}
+
+Supporting Notes:
+${notesSnippet || 'No supporting notes provided.'}
+
+Return a markdown summary with:
+1) Core Concepts (bullet list)
+2) Key Explanations (short paragraph)
+3) Important Terms (bullet list)
+4) Actionable Study Checklist (5 bullets)
+5) 3 Follow-up Questions for revision`;
+
+  try {
+    const response = await getOpenAIClient().chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.4,
+      max_tokens: 900,
+    });
+
+    return response.choices[0]?.message?.content?.trim() || 'Unable to generate summary.';
+  } catch (error) {
+    console.error('Error generating lecture summary:', error);
+    return 'Unable to generate summary at this time.';
+  }
+};
+
+export interface GeneratedLectureQuizItem {
+  question: string;
+  options: string[];
+  correct_answer: string;
+  explanation: string;
+}
+
+export interface GeneratedFlashcardItem {
+  front: string;
+  back: string;
+}
+
+function parseJsonArrayResponse(content: string): unknown[] {
+  const normalized = content.trim();
+  if (!normalized) return [];
+
+  const fencedMatch = normalized.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  const jsonCandidate = fencedMatch?.[1]?.trim() || normalized;
+
+  try {
+    const parsed = JSON.parse(jsonCandidate);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    const arrayStart = jsonCandidate.indexOf('[');
+    const arrayEnd = jsonCandidate.lastIndexOf(']');
+
+    if (arrayStart >= 0 && arrayEnd > arrayStart) {
+      try {
+        const parsed = JSON.parse(jsonCandidate.slice(arrayStart, arrayEnd + 1));
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+
+    return [];
+  }
+}
+
+export const generateLectureQuizzes = async (
+  lectureTitle: string,
+  transcript: string,
+  summary: string,
+  count: number = 5
+): Promise<GeneratedLectureQuizItem[]> => {
+  const transcriptSnippet = transcript.length > 10000 ? `${transcript.slice(0, 10000)}...` : transcript;
+  const summarySnippet = summary.length > 5000 ? `${summary.slice(0, 5000)}...` : summary;
+
+  const prompt = `Generate ${count} multiple-choice quiz questions from this lecture.
+
+Lecture Title: ${lectureTitle}
+
+Transcript:
+${transcriptSnippet}
+
+Summary:
+${summarySnippet}
+
+Return ONLY valid JSON as an array of objects:
+[{
+  "question":"...",
+  "options":["A","B","C","D"],
+  "correct_answer":"...",
+  "explanation":"..."
+}]`;
+
+  try {
+    const response = await getOpenAIClient().chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.5,
+      max_tokens: 1200,
+    });
+
+    const content = response.choices[0]?.message?.content || '[]';
+    const parsed = parseJsonArrayResponse(content);
+
+    return parsed
+      .filter((item) => item?.question && Array.isArray(item?.options) && item?.correct_answer)
+      .map((item) => ({
+        question: String(item.question),
+        options: item.options.map((opt: unknown) => String(opt)).slice(0, 6),
+        correct_answer: String(item.correct_answer),
+        explanation: String(item.explanation || ''),
+      }));
+  } catch (error) {
+    console.error('Error generating lecture quizzes:', error);
+    return [];
+  }
+};
+
+export const generateLectureFlashcards = async (
+  lectureTitle: string,
+  transcript: string,
+  summary: string,
+  count: number = 8
+): Promise<GeneratedFlashcardItem[]> => {
+  const transcriptSnippet = transcript.length > 10000 ? `${transcript.slice(0, 10000)}...` : transcript;
+  const summarySnippet = summary.length > 5000 ? `${summary.slice(0, 5000)}...` : summary;
+
+  const prompt = `Generate ${count} study flashcards from this lecture.
+
+Lecture Title: ${lectureTitle}
+
+Transcript:
+${transcriptSnippet}
+
+Summary:
+${summarySnippet}
+
+Return ONLY valid JSON as an array:
+[{"front":"...","back":"..."}]`;
+
+  try {
+    const response = await getOpenAIClient().chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.5,
+      max_tokens: 1000,
+    });
+
+    const content = response.choices[0]?.message?.content || '[]';
+    const parsed = parseJsonArrayResponse(content);
+
+    return parsed
+      .filter((item) => item?.front && item?.back)
+      .map((item) => ({
+        front: String(item.front),
+        back: String(item.back),
+      }));
+  } catch (error) {
+    console.error('Error generating lecture flashcards:', error);
+    return [];
+  }
+};
+
 // Helper functions
 
 /**

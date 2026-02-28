@@ -11,12 +11,12 @@ export default function QuizzesPage() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Diagnostic Quiz</CardTitle>
-            <CardDescription>Calibrate your learning path with baseline questions.</CardDescription>
+            <CardTitle>Learning Quizzes</CardTitle>
+            <CardDescription>Start quiz sessions from your learning modules.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/diagnostic">
-              <Button className="w-full">Start Diagnostic</Button>
+            <Link href="/learning">
+              <Button className="w-full">Open Learning Modules</Button>
             </Link>
           </CardContent>
         </Card>

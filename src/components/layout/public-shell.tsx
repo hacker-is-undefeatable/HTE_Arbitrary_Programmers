@@ -2,19 +2,10 @@
 
 import { ReactNode } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import {
-  Circle,
-  Settings,
-  HelpCircle,
-  Plus,
-  UserCircle,
-  LogOut,
-} from 'lucide-react';
+import { Circle, Plus, LogIn, UserPlus, Home, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/hooks/useAuth';
 
-interface AppShellProps {
+interface PublicShellProps {
   title: string;
   subtitle?: string;
   children: ReactNode;
@@ -28,30 +19,22 @@ const MENU_ITEMS = [
   { label: 'Flash cards', href: '/flash-cards' },
 ];
 
-export function AppShell({ title, subtitle, children, rightSlot }: AppShellProps) {
-  const router = useRouter();
-  const { signOut } = useAuth();
-
-  const handleLogout = async () => {
-    await signOut();
-    router.push('/login');
-  };
-
+export function PublicShell({ title, subtitle, children, rightSlot }: PublicShellProps) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto flex max-w-[1400px]">
         <aside className="hidden min-h-screen w-[250px] border-r bg-muted/30 p-4 lg:flex lg:flex-col">
           <div className="flex items-center gap-2 px-2 py-1 text-sm font-medium">
             <Circle className="h-4 w-4" />
-            <Link href="/dashboard" className="hover:text-primary transition-colors">
+            <Link href="/" className="hover:text-primary transition-colors">
               Acme Inc.
             </Link>
           </div>
 
           <Button asChild className="mt-6 justify-start rounded-lg bg-foreground text-background hover:bg-foreground/90">
-            <Link href="/quick-create">
+            <Link href="/signup">
               <Plus className="mr-2 h-4 w-4" />
-              Quick Create
+              Get Started
             </Link>
           </Button>
 
@@ -69,34 +52,31 @@ export function AppShell({ title, subtitle, children, rightSlot }: AppShellProps
 
           <div className="mt-auto space-y-1">
             <Link
-              href="/profile"
+              href="/"
               className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
-              <UserCircle className="h-4 w-4" />
-              <span>Profile</span>
+              <Home className="h-4 w-4" />
+              <span>Home</span>
             </Link>
             <Link
-              href="/settings"
+              href="/login"
               className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
-              <Settings className="h-4 w-4" />
-              <span>Settings</span>
+              <LogIn className="h-4 w-4" />
+              <span>Login</span>
             </Link>
-            <button
-              type="button"
+            <Link
+              href="/signup"
               className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
-              <HelpCircle className="h-4 w-4" />
-              <span>Get Help</span>
-            </button>
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              onClick={handleLogout}
-            >
-              <LogOut className="h-4 w-4" />
-              <span>Logout</span>
-            </button>
+              <UserPlus className="h-4 w-4" />
+              <span>Register</span>
+            </Link>
+
+            <div className="mt-3 rounded-lg border bg-background p-3">
+              <div className="text-sm font-medium">DualPath AI</div>
+              <div className="text-xs text-muted-foreground">AI-powered learning platform</div>
+            </div>
           </div>
         </aside>
 
@@ -107,7 +87,12 @@ export function AppShell({ title, subtitle, children, rightSlot }: AppShellProps
                 <h1 className="text-base font-semibold">{title}</h1>
                 {subtitle ? <p className="text-sm text-muted-foreground">{subtitle}</p> : null}
               </div>
-              {rightSlot}
+              {rightSlot || (
+                <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                  <Sparkles className="h-4 w-4" />
+                  <span>DualPath</span>
+                </div>
+              )}
             </div>
             <div className="p-4 sm:p-6">{children}</div>
           </div>

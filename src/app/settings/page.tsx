@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useAuth';
@@ -12,7 +12,7 @@ import { AppShell } from '@/components/layout/app-shell';
 export default function SettingsPage() {
   const router = useRouter();
   const { user, signOut } = useAuth();
-  const { profile, updateProfile, loading: profileLoading } = useProfile(user?.id || null);
+  const { profile, updateProfile, createProfile, loading: profileLoading } = useProfile(user?.id || null);
 
   const [name, setName] = useState(profile?.name || '');
   const [role, setRole] = useState(profile?.role || 'high_school');
@@ -23,19 +23,35 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
+  useEffect(() => {
+    if (profile) {
+      setName(profile.name || '');
+      setRole(profile.role || 'high_school');
+      setLearningGoal(profile.learning_goal || '');
+      setExplanationStyle(profile.preferred_explanation_style || 'step-by-step');
+    }
+  }, [profile]);
+
   const handleSave = async () => {
     setSaving(true);
     setMessage('');
 
-    const result = await updateProfile({
-      id: profile?.id || '',
-      name,
-      role: role as 'high_school' | 'college',
-      learning_goal: learningGoal,
-      preferred_explanation_style: explanationStyle as 'step-by-step' | 'conceptual' | 'visual',
-      created_at: profile?.created_at || '',
-      updated_at: new Date().toISOString(),
-    });
+    const result = profile
+      ? await updateProfile({
+          id: profile.id,
+          name,
+          role: role as 'high_school' | 'college',
+          learning_goal: learningGoal,
+          preferred_explanation_style: explanationStyle as 'step-by-step' | 'conceptual' | 'visual',
+          updated_at: new Date().toISOString(),
+        })
+      : await createProfile({
+          id: user?.id || '',
+          name,
+          role: role as 'high_school' | 'college',
+          learning_goal: learningGoal,
+          preferred_explanation_style: explanationStyle as 'step-by-step' | 'conceptual' | 'visual',
+        });
 
     if (result) {
       setMessage('Settings saved successfully!');

@@ -2,7 +2,7 @@
 
 A full-stack AI-powered personalized learning platform that adapts to your learning level and style.
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Node.js 18+
@@ -45,7 +45,7 @@ npm run dev
 5. **Open in Browser**
 Visit http://localhost:3000
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 src/
@@ -98,7 +98,7 @@ src/
 └── next.config.js                # Next.js config
 ```
 
-## 🏗️ Architecture
+## Architecture
 
 ### Frontend Stack
 - **Framework**: Next.js 14 with App Router
@@ -145,7 +145,7 @@ src/
 - Records Python code submissions
 - Tracks correctness and error messages
 
-## 🎓 Core Features
+## Core Features
 
 ### 1. Diagnostic Quiz Engine
 - 5 questions per subject based on user role
@@ -179,7 +179,7 @@ src/
 - AI-powered debugging explanations
 - Hint system
 
-## 🔑 Key Algorithms
+## Key Algorithms
 
 ### Mastery Score Calculation
 ```
@@ -200,7 +200,7 @@ Higher = needs more attention
 > 75 mastery   → Hard
 ```
 
-## 📊 API Endpoints
+## API Endpoints
 
 ### Quiz Management
 - `POST /api/quiz-attempts` - Record quiz answer
@@ -222,7 +222,7 @@ Higher = needs more attention
 - `POST /api/coding-submissions` - Save code submission
 - `GET /api/coding-submissions?userId=xxx` - Get submissions
 
-## 🧠 AI Integration
+## AI Integration
 
 ### OpenAI Prompts
 
@@ -247,7 +247,7 @@ Generate questions at specified difficulty (easy/medium/hard)
 For a specific topic and subject
 ```
 
-## 🔐 Security Features
+## Security Features
 
 - Row-Level Security (RLS) on all tables
 - Users can only access their own data
@@ -255,7 +255,7 @@ For a specific topic and subject
 - ANON key for client-side operations
 - Environment variables for secrets
 
-## 📈 Example Workflows
+## Example Workflows
 
 ### Workflow 1: New User Signup
 ```
@@ -287,7 +287,7 @@ For a specific topic and subject
 6. Next revision date recalculated
 ```
 
-## 🚀 Deployment
+## Deployment
 
 ### Vercel (Recommended)
 ```bash
@@ -302,7 +302,7 @@ docker build -t dualpath-ai .
 docker run -p 3000:3000 dualpath-ai
 ```
 
-## 📝 Sample Features Included
+## Sample Features Included
 
 ### Diagnostic Questions
 - High School Math: Algebra, Quadratics, Geometry, Trigonometry
@@ -313,7 +313,7 @@ docker run -p 3000:3000 dualpath-ai
 2. Reverse a String
 3. Count Vowels
 
-## 🎯 Hackathon MVP
+## Hackathon MVP
 
 ✅ Clean, readable code  
 ✅ Core features working end-to-end  
@@ -324,7 +324,7 @@ docker run -p 3000:3000 dualpath-ai
 ✅ Adaptive learning logic implemented  
 ✅ All pages and flows implemented  
 
-## 🔧 Development Tips
+## Development Tips
 
 ### Adding New Topics
 Edit [src/utils/quizData.ts](src/utils/quizData.ts):
@@ -347,7 +347,7 @@ Edit [src/utils/aiService.ts](src/utils/aiService.ts) functions:
 - ShadCN UI components in [src/components/ui/](src/components/ui/)
 - Global styles in [src/app/globals.css](src/app/globals.css)
 
-## 🐛 Debugging
+## Debugging
 
 ### Check Supabase Connection
 ```typescript
@@ -367,7 +367,7 @@ curl -X POST http://localhost:3000/api/quiz-attempts \
 ### Monitor OpenAI Usage
 Check your OpenAI dashboard for API usage and costs.
 
-## 📚 Resources
+## Resources
 
 - [Next.js Docs](https://nextjs.org/docs)
 - [Supabase Docs](https://supabase.com/docs)
@@ -376,10 +376,10 @@ Check your OpenAI dashboard for API usage and costs.
 - [OpenAI API](https://platform.openai.com/docs)
 - [Monaco Editor](https://microsoft.github.io/monaco-editor/)
 
-## 👥 Team
+## Team
 
 Built for HackTheEast Hackathon | HTE_Arbitrary_Programmers
 
-## 📄 License
+## License
 
 MIT - Feel free to use and modify for your hackathon!

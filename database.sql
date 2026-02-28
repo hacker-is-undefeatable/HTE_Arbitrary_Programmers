@@ -172,3 +172,109 @@ create policy "Users can insert own submissions"
 
 -- Create index for common queries
 create index if not exists idx_quiz_attempts_is_correct on public.quiz_attempts(is_correct);
+
+-- 7. LECTURE_SESSIONS TABLE (persistent Quick Create sessions)
+create table if not exists public.lecture_sessions (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  lecture_title text not null,
+  media_url text,
+  media_file_name text,
+  media_mime_type text,
+  notes_url text,
+  notes_file_name text,
+  notes_mime_type text,
+  notes_text text,
+  transcript text,
+  summary text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create index if not exists idx_lecture_sessions_user_id on public.lecture_sessions(user_id);
+create index if not exists idx_lecture_sessions_created_at on public.lecture_sessions(created_at desc);
+
+alter table public.lecture_sessions enable row level security;
+
+create policy "Users can view own lecture sessions"
+  on public.lecture_sessions for select
+  using ( auth.uid() = user_id );
+
+create policy "Users can insert own lecture sessions"
+  on public.lecture_sessions for insert
+  with check ( auth.uid() = user_id );
+
+create policy "Users can update own lecture sessions"
+  on public.lecture_sessions for update
+  using ( auth.uid() = user_id );
+
+-- 8. GENERATED_QUIZZES TABLE
+create table if not exists public.generated_quizzes (
+  id uuid default gen_random_uuid() primary key,
+  session_id uuid references public.lecture_sessions(id) on delete cascade not null,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  question text not null,
+  options jsonb not null,
+  correct_answer text not null,
+  explanation text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create index if not exists idx_generated_quizzes_session_id on public.generated_quizzes(session_id);
+create index if not exists idx_generated_quizzes_user_id on public.generated_quizzes(user_id);
+
+alter table public.generated_quizzes enable row level security;
+
+create policy "Users can view own generated quizzes"
+  on public.generated_quizzes for select
+  using ( auth.uid() = user_id );
+
+create policy "Users can insert own generated quizzes"
+  on public.generated_quizzes for insert
+  with check ( auth.uid() = user_id );
+
+-- 9. GENERATED_FLASHCARDS TABLE
+create table if not exists public.generated_flashcards (
+  id uuid default gen_random_uuid() primary key,
+  session_id uuid references public.lecture_sessions(id) on delete cascade not null,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  front text not null,
+  back text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create index if not exists idx_generated_flashcards_session_id on public.generated_flashcards(session_id);
+create index if not exists idx_generated_flashcards_user_id on public.generated_flashcards(user_id);
+
+alter table public.generated_flashcards enable row level security;
+
+create policy "Users can view own generated flashcards"
+  on public.generated_flashcards for select
+  using ( auth.uid() = user_id );
+
+create policy "Users can insert own generated flashcards"
+  on public.generated_flashcards for insert
+  with check ( auth.uid() = user_id );
+
+-- 10. REVISION_TIME_LOGS TABLE
+create table if not exists public.revision_time_logs (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  duration_seconds integer not null check (duration_seconds >= 0),
+  started_at timestamp with time zone not null,
+  ended_at timestamp with time zone not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create index if not exists idx_revision_time_logs_user_id on public.revision_time_logs(user_id);
+create index if not exists idx_revision_time_logs_started_at on public.revision_time_logs(started_at desc);
+
+alter table public.revision_time_logs enable row level security;
+
+create policy "Users can view own revision time logs"
+  on public.revision_time_logs for select
+  using ( auth.uid() = user_id );
+
+create policy "Users can insert own revision time logs"
+  on public.revision_time_logs for insert
+  with check ( auth.uid() = user_id );

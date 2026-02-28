@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +12,29 @@ export default function RevisionPage() {
   const [revision, setRevision] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'overdue' | 'today'>('all');
+  const startTimeRef = useRef<number>(Date.now());
+
+  useEffect(() => {
+    startTimeRef.current = Date.now();
+
+    return () => {
+      const endTime = Date.now();
+      const durationSeconds = Math.floor((endTime - startTimeRef.current) / 1000);
+
+      if (!user?.id || durationSeconds < 15) return;
+
+      void fetch('/api/revision-time', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          durationSeconds,
+          startedAt: new Date(startTimeRef.current).toISOString(),
+          endedAt: new Date(endTime).toISOString(),
+        }),
+      });
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (user?.id) {
@@ -102,7 +125,7 @@ export default function RevisionPage() {
         {revision.length > 0 && (
           <Card className="mt-12 bg-primary/5 border-primary/20">
             <CardHeader>
-              <CardTitle>📊 Revision Insights</CardTitle>
+              <CardTitle>Revision Insights</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <p>
@@ -112,7 +135,7 @@ export default function RevisionPage() {
                 Topics with higher priority scores need more attention to improve your mastery.
               </p>
               <p>
-                💡 Tip: Focus on revising overdue topics first to strengthen weak areas.
+                Tip: Focus on revising overdue topics first to strengthen weak areas.
               </p>
             </CardContent>
           </Card>

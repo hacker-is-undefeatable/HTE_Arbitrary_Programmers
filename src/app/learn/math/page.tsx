@@ -228,7 +228,7 @@ export default function LearnMathPage() {
               <div
                 className={`p-4 rounded-lg ${isCorrect ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}
               >
-                <p className="font-semibold">{isCorrect ? '✓ Correct!' : '✗ Incorrect'}</p>
+                <p className="font-semibold">{isCorrect ? 'Correct!' : 'Incorrect'}</p>
                 {!isCorrect && (
                   <p className="text-sm mt-2">
                     The correct answer is: <strong>{currentQuestion.correct_answer}</strong>
@@ -241,7 +241,7 @@ export default function LearnMathPage() {
             {showExplanation && aiExplanation && (
               <Card className="bg-blue-50 border-blue-200">
                 <CardHeader>
-                  <CardTitle className="text-lg">💡 AI Explanation</CardTitle>
+                  <CardTitle className="text-lg">AI Explanation</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
                   <div>

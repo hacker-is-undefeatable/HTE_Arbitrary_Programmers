@@ -42,9 +42,9 @@ export default function LearnPythonPage() {
       // For demo, we'll just provide feedback
       if (code.includes('def add')) {
         if (code.includes('return a + b')) {
-          setOutput('✓ All tests passed!\nadd(2, 3) = 5\nadd(-1, 1) = 0\nadd(0, 0) = 0');
+          setOutput('All tests passed!\nadd(2, 3) = 5\nadd(-1, 1) = 0\nadd(0, 0) = 0');
         } else {
-          setOutput('✗ Tests failed\nHint: Check your return statement');
+          setOutput('Tests failed\nHint: Check your return statement');
           setShowExplanation(true);
           const res = await fetch('/api/ai-explanation/python-debug', {
             method: 'POST',
@@ -80,7 +80,7 @@ export default function LearnPythonPage() {
           challengeId: currentChallenge.id,
           code,
           isCorrect: output.includes('All tests passed'),
-          errorMessage: output.includes('✗') ? output : null,
+          errorMessage: output.includes('Tests failed') ? output : null,
         }),
       });
     } catch (error) {
@@ -165,7 +165,7 @@ export default function LearnPythonPage() {
 
                 <div className="mt-4 space-y-2">
                   <Button onClick={executeCode} disabled={executing} className="w-full">
-                    {executing ? 'Executing...' : '▶ Run Code'}
+                    {executing ? 'Executing...' : 'Run Code'}
                   </Button>
 
                   {showHints && (
@@ -186,7 +186,7 @@ export default function LearnPythonPage() {
                     onClick={() => setShowHints(!showHints)}
                     className="w-full"
                   >
-                    {showHints ? '✓ Hide Hints' : '💡 Show Hints'}
+                    {showHints ? 'Hide Hints' : 'Show Hints'}
                   </Button>
                 </div>
               </CardContent>
@@ -210,7 +210,7 @@ export default function LearnPythonPage() {
             {showExplanation && explanation && (
               <Card className="bg-primary/5 border-primary/20">
                 <CardHeader>
-                  <CardTitle className="text-lg">💡 Debugging Help</CardTitle>
+                  <CardTitle className="text-lg">Debugging Help</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
                   <div>
@@ -233,7 +233,7 @@ export default function LearnPythonPage() {
 
             {output && output.includes('passed') && (
               <Button onClick={saveSubmission} className="w-full">
-                ✓ Save & Continue
+                Save & Continue
               </Button>
             )}
           </div>

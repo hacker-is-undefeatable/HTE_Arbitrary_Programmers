@@ -64,6 +64,19 @@ export default function Home() {
             </div>
           ))}
         </div>
+
+        <div className="rounded-xl border bg-gradient-to-r from-blue-500/10 to-purple-500/10 p-6 sm:p-8">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="text-3xl">📚</div>
+            <h2 className="text-2xl font-bold">Lecture Notes</h2>
+          </div>
+          <p className="text-muted-foreground mb-4">
+            Access comprehensive lecture notes on Physics, covering Electric Fields, Coulomb's Law, and more.
+          </p>
+          <Link href="/lecture-notes">
+            <Button variant="outline">Browse Lecture Notes →</Button>
+          </Link>
+        </div>
       </div>
     </PublicShell>
   );

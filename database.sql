@@ -29,6 +29,29 @@ create policy "Users can insert own profile"
   on public.profiles for insert
   with check ( auth.uid() = id );
 
+-- Create profile automatically when a new user signs up (auth.users)
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  insert into public.profiles (id, role, name, learning_goal, preferred_explanation_style)
+  values (
+    new.id,
+    'college',
+    null,
+    null,
+    'step-by-step'
+  );
+  return new;
+end;
+$$;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+
 -- 2. MASTERY_SCORES TABLE
 create table if not exists public.mastery_scores (
   id uuid default gen_random_uuid() primary key,
@@ -278,3 +301,97 @@ create policy "Users can view own revision time logs"
 create policy "Users can insert own revision time logs"
   on public.revision_time_logs for insert
   with check ( auth.uid() = user_id );
+
+-- ========== QUIZ BATTLES (Quiz Party) ==========
+
+-- quiz_servers: live quiz session instances
+create table if not exists public.quiz_servers (
+  id uuid default gen_random_uuid() primary key,
+  invite_code char(6) not null,
+  host_user_id uuid references public.profiles(id) on delete set null,
+  lecture_session_id uuid references public.lecture_sessions(id) on delete set null,
+  max_players integer not null check (max_players >= 2 and max_players <= 100),
+  duration_minutes integer not null check (duration_minutes >= 5 and duration_minutes <= 120),
+  status text not null default 'waiting' check (status in ('waiting', 'generating', 'active', 'ended')),
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  started_at timestamp with time zone,
+  ended_at timestamp with time zone,
+  current_question_index integer not null default 0,
+  unique(invite_code)
+);
+
+create index if not exists idx_quiz_servers_invite_code on public.quiz_servers(invite_code);
+create index if not exists idx_quiz_servers_status on public.quiz_servers(status);
+
+-- quiz_participants: players in a quiz server (guests and logged-in)
+create table if not exists public.quiz_participants (
+  id uuid default gen_random_uuid() primary key,
+  quiz_server_id uuid references public.quiz_servers(id) on delete cascade not null,
+  user_id uuid references public.profiles(id) on delete set null,
+  display_name text not null,
+  guest boolean not null default false,
+  guest_tag_data_uri text,
+  joined_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  score integer not null default 0
+);
+
+create index if not exists idx_quiz_participants_quiz_server_id on public.quiz_participants(quiz_server_id);
+
+-- quizzes: stored quiz (questions + metadata), linked to server and optionally saved for user
+create table if not exists public.quizzes (
+  id uuid default gen_random_uuid() primary key,
+  quiz_server_id uuid references public.quiz_servers(id) on delete set null,
+  host_user_id uuid references public.profiles(id) on delete set null,
+  saved_for_user_id uuid references public.profiles(id) on delete set null,
+  title text not null,
+  generated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  question_count integer not null default 0,
+  metadata jsonb
+);
+
+create index if not exists idx_quizzes_quiz_server_id on public.quizzes(quiz_server_id);
+create index if not exists idx_quizzes_saved_for_user_id on public.quizzes(saved_for_user_id);
+
+-- quiz_questions: individual questions with difficulty and source
+create type quiz_question_difficulty as enum ('easy', 'medium', 'hard');
+
+create table if not exists public.quiz_questions (
+  id uuid default gen_random_uuid() primary key,
+  quiz_id uuid references public.quizzes(id) on delete cascade not null,
+  question_index integer not null,
+  question_text text not null,
+  choices jsonb not null,
+  correct_choice_index integer not null check (correct_choice_index >= 0 and correct_choice_index <= 3),
+  explanation text,
+  difficulty quiz_question_difficulty not null,
+  source_span text
+);
+
+create index if not exists idx_quiz_questions_quiz_id on public.quiz_questions(quiz_id);
+
+-- quiz_downloads: track who downloaded (user or guest)
+create table if not exists public.quiz_downloads (
+  id uuid default gen_random_uuid() primary key,
+  quiz_id uuid references public.quizzes(id) on delete cascade not null,
+  user_id uuid references public.profiles(id) on delete set null,
+  guest_display_name text,
+  download_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  file_type text not null
+);
+
+create index if not exists idx_quiz_downloads_quiz_id on public.quiz_downloads(quiz_id);
+
+-- quiz_answers: per-participant per-question answers for scoring
+create table if not exists public.quiz_answers (
+  id uuid default gen_random_uuid() primary key,
+  quiz_server_id uuid references public.quiz_servers(id) on delete cascade not null,
+  participant_id uuid references public.quiz_participants(id) on delete cascade not null,
+  question_index integer not null,
+  choice_index integer not null,
+  correct boolean not null,
+  answered_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  time_ms integer
+);
+
+create index if not exists idx_quiz_answers_quiz_server_id on public.quiz_answers(quiz_server_id);
+create index if not exists idx_quiz_answers_participant_id on public.quiz_answers(participant_id);

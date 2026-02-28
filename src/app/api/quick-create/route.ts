@@ -139,6 +139,29 @@ export async function POST(request: NextRequest) {
     const generatedQuizzes = await generateLectureQuizzes(lectureTitle, transcriptText, summary, 5);
     const generatedFlashcards = await generateLectureFlashcards(lectureTitle, transcriptText, summary, 8);
 
+    // Ensure profile exists so lecture_sessions.user_id FK is satisfied (profiles are created in Settings; user may not have visited yet)
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+    if (!existingProfile) {
+      const { error: profileError } = await supabase.from('profiles').insert({
+        id: userId,
+        role: 'college',
+        name: null,
+        learning_goal: null,
+        preferred_explanation_style: 'step-by-step',
+      });
+      if (profileError) {
+        console.error('Quick create: failed to ensure profile exists:', profileError);
+        return NextResponse.json(
+          { error: 'Could not ensure user profile. Please complete your profile in Settings first.' },
+          { status: 400 }
+        );
+      }
+    }
+
     const { data: session, error: sessionError } = await supabase
       .from('lecture_sessions')
       .insert([
@@ -258,4 +281,23 @@ export async function GET(request: NextRequest) {
     console.error('Quick create history error:', error);
     return NextResponse.json({ error: 'Failed to fetch session history.' }, { status: 500 });
   }
+}
+
+/** Returns lecture session metadata for quiz battle question generation. Used by quiz API. */
+export async function getLectureSessionForQuiz(sessionId: string) {
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from('lecture_sessions')
+    .select('id, lecture_title, notes_text, transcript, summary, created_at')
+    .eq('id', sessionId)
+    .single();
+  if (error || !data) return null;
+  return data as {
+    id: string;
+    lecture_title: string;
+    notes_text: string | null;
+    transcript: string | null;
+    summary: string | null;
+    created_at: string;
+  };
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
 import { AppShell } from '@/components/layout/app-shell';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,6 +41,8 @@ export default function QuickCreatePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<{
+    sessionId: string;
+    lectureTitle: string;
     transcript: string;
     summary: string;
     mediaMessage?: string;
@@ -104,6 +107,8 @@ export default function QuickCreatePage() {
       }
 
       setResult({
+        sessionId: data.sessionId,
+        lectureTitle: data.lectureTitle || lectureTitle || 'Untitled Lecture',
         transcript: data.transcript || '',
         summary: data.summary || '',
         mediaMessage: data.mediaMessage,
@@ -198,9 +203,14 @@ export default function QuickCreatePage() {
                 <CardTitle>Lecture Summary</CardTitle>
                 <CardDescription>Generated with Azure AI</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <div className="whitespace-pre-wrap rounded-md border bg-muted/20 p-3 text-sm leading-6">
                   {result.summary || 'No summary was produced.'}
+                </div>
+                <div>
+                  <Link href={`/lecture-notes/${result.sessionId}?openQuizParty=1`}>
+                    <Button>Start Quiz Party</Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>
@@ -272,6 +282,11 @@ export default function QuickCreatePage() {
                     <span>{session.generated_flashcards?.length || 0} flashcards</span>
                     {session.media_url ? <a href={session.media_url} target="_blank" rel="noreferrer" className="underline">media file</a> : null}
                     {session.notes_url ? <a href={session.notes_url} target="_blank" rel="noreferrer" className="underline">notes file</a> : null}
+                  </div>
+                  <div className="mt-2">
+                    <Link href={`/lecture-notes/${session.id}`} className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+                      View session
+                    </Link>
                   </div>
                 </div>
               ))

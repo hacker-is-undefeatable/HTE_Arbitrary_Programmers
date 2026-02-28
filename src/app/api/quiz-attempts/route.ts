@@ -13,12 +13,14 @@ export async function POST(request: NextRequest) {
     const { userId, subject, topic, question, userAnswer, correctAnswer, isCorrect } = body;
 
     if (!userId || !subject || !topic || !question) {
+      console.error('Quiz attempt: Missing required fields', { userId, subject, topic, question });
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
+    console.log('Saving quiz attempt with service role:', { userId, subject, topic });
     const { data, error } = await supabase
       .from('quiz_attempts')
       .insert([
@@ -37,16 +39,26 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
+      console.error('Quiz attempt insert error:', error);
+      
+      // If it's a permission error after trying with service role,
+      // this indicates an RLS policy issue
+      if (error.code === 'PGRST301' || error.message.includes('permission')) {
+        console.error('RLS Permission denied - service role unable to insert. Check Supabase RLS policies and ensure INSERT policy exists.');
+      }
+      
       return NextResponse.json(
-        { error: error.message },
+        { error: error.message, code: error.code, details: error },
         { status: 500 }
       );
     }
 
+    console.log('Quiz attempt saved successfully:', data);
     return NextResponse.json(data);
   } catch (error) {
+    console.error('Quiz attempt error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
     );
   }

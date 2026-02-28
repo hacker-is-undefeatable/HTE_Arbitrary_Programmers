@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AppShell } from '@/components/layout/app-shell';
 import { getDiagnosticQuestions } from '@/utils/quizData';
 import { calculateMasteryScore } from '@/utils/masteryEngine';
 import { QuizQuestion } from '@/types';
@@ -20,6 +21,7 @@ export default function DiagnosticPage() {
   const [answers, setAnswers] = useState<{ [key: number]: string }>({});
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (profile && !profileLoading) {
@@ -28,6 +30,17 @@ export default function DiagnosticPage() {
       setQuestions(qs);
     }
   }, [profile, profileLoading]);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/login');
+      return;
+    }
+
+    if (!authLoading && !profileLoading && user && !profile) {
+      router.push('/diagnostic-setup');
+    }
+  }, [authLoading, profileLoading, user, profile, router]);
 
   if (authLoading || profileLoading || !profile) {
     return (
@@ -56,6 +69,7 @@ export default function DiagnosticPage() {
   const handleSubmit = async () => {
     setSubmitted(true);
     setSaving(true);
+    setError('');
 
     const subject = profile.role === 'high_school' ? 'math' : 'python';
 
@@ -73,12 +87,12 @@ export default function DiagnosticPage() {
 
     // Save attempts and mastery scores
     try {
-      for (const [idx, answer] of Object.entries(answers)) {
+      // Save all quiz attempts
+      const attemptPromises = Object.entries(answers).map(([idx, answer]) => {
         const q = questions[parseInt(idx)];
         const isCorrect = answer === q.correct_answer;
 
-        // Save attempt
-        await fetch('/api/quiz-attempts', {
+        return fetch('/api/quiz-attempts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -90,15 +104,25 @@ export default function DiagnosticPage() {
             correctAnswer: q.correct_answer,
             isCorrect,
           }),
+        }).then(async res => {
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            console.error('Quiz attempt API response:', { status: res.status, statusText: res.statusText, error: errorData });
+            throw new Error(`Failed to save quiz attempt: ${errorData.error || res.statusText}`);
+          }
+          return res.json();
         });
-      }
+      });
+
+      const attemptResults = await Promise.all(attemptPromises);
+      console.log('Quiz attempts saved:', attemptResults.length);
 
       // Save mastery scores per topic
-      for (const [topic, score] of Object.entries(topicScores)) {
+      const scorePromises = Object.entries(topicScores).map(([topic, score]) => {
         const topicScore = (score as any).correct / (score as any).total;
         const masteryScore = calculateMasteryScore(50, topicScore > 0.6); // If > 60%, get +10
 
-        await fetch('/api/mastery-scores', {
+        return fetch('/api/mastery-scores', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -107,16 +131,29 @@ export default function DiagnosticPage() {
             topic,
             masteryScore: Math.round(masteryScore),
           }),
+        }).then(async res => {
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            console.error('Mastery scores API response:', { status: res.status, statusText: res.statusText, topic, error: errorData });
+            throw new Error(`Failed to save mastery score for ${topic}: ${errorData.error || res.statusText}`);
+          }
+          return res.json();
         });
-      }
-    } catch (error) {
-      console.error('Error saving results:', error);
-    }
+      });
 
-    setSaving(false);
-    setTimeout(() => {
-      router.push('/dashboard');
-    }, 1000);
+      const scoreResults = await Promise.all(scorePromises);
+      console.log('Mastery scores saved:', scoreResults.length);
+
+      setSaving(false);
+      // Wait 2 seconds to ensure database is fully updated before redirecting
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 2000);
+    } catch (err) {
+      console.error('Error saving results:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save assessment results. Please try again.');
+      setSaving(false);
+    }
   };
 
   if (questions.length === 0) {
@@ -132,13 +169,13 @@ export default function DiagnosticPage() {
   const progressPercent = ((currentQIndex + 1) / questions.length) * 100;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 px-4 py-8">
-      <div className="max-w-2xl mx-auto">
+    <AppShell title="Diagnostic Assessment" subtitle={`${subject} • Question ${currentQIndex + 1} of ${questions.length}`}>
+      <div className="mx-auto max-w-2xl">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2">Diagnostic Assessment</h1>
-          <p className="text-slate-600">{subject} • Question {currentQIndex + 1} of {questions.length}</p>
-          <div className="w-full bg-slate-200 rounded-full h-2 mt-4">
+          <p className="text-muted-foreground">{subject} • Question {currentQIndex + 1} of {questions.length}</p>
+          <div className="w-full bg-muted rounded-full h-2 mt-4">
             <div
               className="bg-primary h-2 rounded-full transition-all"
               style={{ width: `${progressPercent}%` }}
@@ -160,8 +197,8 @@ export default function DiagnosticPage() {
                     onClick={() => handleAnswerSelect(option)}
                     className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
                       answers[currentQIndex] === option
-                        ? 'border-primary bg-blue-50'
-                        : 'border-slate-200 hover:border-slate-300'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-ring/60'
                     }`}
                   >
                     {option}
@@ -201,18 +238,37 @@ export default function DiagnosticPage() {
         ) : (
           <Card className="text-center">
             <CardContent className="pt-12 pb-12">
-              <div className="text-5xl mb-4">🎉</div>
-              <h2 className="text-2xl font-bold mb-2">Assessment Complete!</h2>
-              <p className="text-slate-600 mb-8">
-                Analyzing your results and setting up your personalized learning path...
-              </p>
-              <div className="inline-block">
-                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-              </div>
+              {error ? (
+                <>
+                  <div className="text-5xl mb-4">❌</div>
+                  <h2 className="text-2xl font-bold mb-2 text-red-600">Error Saving Results</h2>
+                  <p className="text-muted-foreground mb-8">{error}</p>
+                  <Button 
+                    onClick={() => {
+                      setSubmitted(false);
+                      setError('');
+                      setSaving(false);
+                    }}
+                  >
+                    Try Again
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div className="text-5xl mb-4">🎉</div>
+                  <h2 className="text-2xl font-bold mb-2">Assessment Complete!</h2>
+                  <p className="text-muted-foreground mb-8">
+                    Analyzing your results and setting up your personalized learning path...
+                  </p>
+                  <div className="inline-block">
+                    <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         )}
       </div>
-    </div>
+    </AppShell>
   );
 }

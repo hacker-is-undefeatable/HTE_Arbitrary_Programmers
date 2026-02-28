@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AppShell } from '@/components/layout/app-shell';
 import Link from 'next/link';
 
 export default function RevisionPage() {
@@ -30,13 +31,8 @@ export default function RevisionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        <Link href="/dashboard" className="text-primary hover:underline mb-8 inline-block">
-          ← Back to Dashboard
-        </Link>
-
-        <h1 className="text-4xl font-bold mb-8">Revision Schedule</h1>
+    <AppShell title="Revision Schedule" subtitle="Review topics due for spaced repetition">
+      <div className="mx-auto max-w-4xl">
 
         {/* Filters */}
         <div className="flex gap-2 mb-8">
@@ -46,8 +42,8 @@ export default function RevisionPage() {
               onClick={() => setFilter(f as 'all' | 'overdue' | 'today')}
               className={`px-4 py-2 rounded-lg font-medium transition-all ${
                 filter === f
-                  ? 'bg-primary text-white'
-                  : 'bg-white border border-slate-200 hover:border-slate-300'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-background border border-border hover:border-ring/60'
               }`}
             >
               {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -66,7 +62,7 @@ export default function RevisionPage() {
                       <h3 className="text-lg font-bold mb-1 capitalize">
                         {item.topic.replace('-', ' ')} ({item.subject})
                       </h3>
-                      <p className="text-sm text-slate-600 mb-2">
+                      <p className="text-sm text-muted-foreground mb-2">
                         Next revision: {new Date(item.next_revision_date).toLocaleDateString()}
                       </p>
                       <div className="flex gap-2 flex-wrap">
@@ -94,7 +90,7 @@ export default function RevisionPage() {
         ) : (
           <Card>
             <CardContent className="pt-12 pb-12 text-center">
-              <p className="text-slate-600 mb-4">No revisions scheduled</p>
+              <p className="text-muted-foreground mb-4">No revisions scheduled</p>
               <Link href="/dashboard">
                 <Button>Back to Dashboard</Button>
               </Link>
@@ -104,7 +100,7 @@ export default function RevisionPage() {
 
         {/* Smart Insights */}
         {revision.length > 0 && (
-          <Card className="mt-12 bg-blue-50 border-blue-200">
+          <Card className="mt-12 bg-primary/5 border-primary/20">
             <CardHeader>
               <CardTitle>📊 Revision Insights</CardTitle>
             </CardHeader>
@@ -122,6 +118,6 @@ export default function RevisionPage() {
           </Card>
         )}
       </div>
-    </div>
+    </AppShell>
   );
 }

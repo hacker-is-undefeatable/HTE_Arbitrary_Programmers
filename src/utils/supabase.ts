@@ -19,9 +19,20 @@ export const createBrowserClient = () => {
 
 // For server-side operations
 export const createServerClient = () => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!url || !serviceKey) {
+    console.error('Missing Supabase environment variables:', {
+      hasUrl: !!url,
+      hasServiceKey: !!serviceKey,
+      availableEnvVars: Object.keys(process.env).filter(k => k.includes('SUPABASE'))
+    });
+  }
+  
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    url || process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serviceKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 };
 

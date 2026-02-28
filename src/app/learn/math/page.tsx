@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfile, useMasteryScores } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AppShell } from '@/components/layout/app-shell';
 import { getDifficultyLevel, calculateMasteryScore } from '@/utils/masteryEngine';
 import { QuizQuestion } from '@/types';
 import Link from 'next/link';
@@ -123,14 +124,8 @@ export default function LearnMathPage() {
 
   if (!selectedTopic) {
     return (
-      <div className="min-h-screen bg-slate-50 px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          <Link href="/dashboard" className="text-primary hover:underline mb-8 inline-block">
-            ← Back to Dashboard
-          </Link>
-
-          <h1 className="text-4xl font-bold mb-8">Math Practice</h1>
-
+      <AppShell title="Math Practice" subtitle="Choose a topic to begin adaptive practice">
+        <div className="mx-auto max-w-4xl">
           <div className="grid md:grid-cols-2 gap-4">
             {topics.map((topic) => {
               const score = scores.find((s) => s.subject === 'math' && s.topic === topic);
@@ -150,11 +145,11 @@ export default function LearnMathPage() {
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <h3 className="font-bold text-lg capitalize">{topic.replace('-', ' ')}</h3>
-                        <p className="text-sm text-slate-600">Difficulty: {difficulty}</p>
+                        <p className="text-sm text-muted-foreground">Difficulty: {difficulty}</p>
                       </div>
                       <div className="text-3xl font-bold text-primary">{masteryScore}%</div>
                     </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2">
+                    <div className="w-full bg-muted rounded-full h-2">
                       <div
                         className="bg-primary h-2 rounded-full"
                         style={{ width: `${masteryScore}%` }}
@@ -166,7 +161,7 @@ export default function LearnMathPage() {
             })}
           </div>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
@@ -179,8 +174,8 @@ export default function LearnMathPage() {
   const isCorrect = userAnswer === currentQuestion.correct_answer;
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
-      <div className="max-w-2xl mx-auto">
+    <AppShell title="Math Practice" subtitle={selectedTopic.replace('-', ' ')}>
+      <div className="mx-auto max-w-2xl">
         <div className="flex justify-between items-center mb-8">
           <Button
             variant="outline"
@@ -195,7 +190,7 @@ export default function LearnMathPage() {
             <p className="font-semibold">
               Question {currentQIndex + 1} of {questions.length}
             </p>
-            <p className="text-sm text-slate-600">{selectedTopic}</p>
+            <p className="text-sm text-muted-foreground">{selectedTopic}</p>
           </div>
         </div>
 
@@ -217,10 +212,10 @@ export default function LearnMathPage() {
                         ? isCorrect
                           ? 'border-green-500 bg-green-50'
                           : 'border-red-500 bg-red-50'
-                        : 'border-primary bg-blue-50'
+                        : 'border-primary bg-primary/5'
                       : submitted && option === currentQuestion.correct_answer
                       ? 'border-green-500 bg-green-50'
-                      : 'border-slate-200'
+                      : 'border-border'
                   }`}
                 >
                   {option}
@@ -284,6 +279,6 @@ export default function LearnMathPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </AppShell>
   );
 }

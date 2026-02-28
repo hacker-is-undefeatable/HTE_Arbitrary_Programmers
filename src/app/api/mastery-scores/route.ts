@@ -13,13 +13,16 @@ export async function POST(request: NextRequest) {
     const { userId, subject, topic, masteryScore } = body;
 
     if (!userId || !subject || !topic || masteryScore === undefined) {
+      console.error('Mastery score: Missing required fields', { userId, subject, topic, masteryScore });
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    // Upsert (insert or update)
+    console.log('Saving mastery score with service role:', { userId, subject, topic, masteryScore });
+    
+    // First, try upsert with service role
     const { data, error } = await supabase
       .from('mastery_scores')
       .upsert(
@@ -36,16 +39,47 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
+      console.error('Mastery score upsert error:', error);
+      
+      // If it's a permission error (403), try insert instead
+      if (error.code === 'PGRST301' || error.message.includes('permission')) {
+        console.log('Permission error detected, trying insert...');
+        const { data: insertData, error: insertError } = await supabase
+          .from('mastery_scores')
+          .insert({
+            user_id: userId,
+            subject,
+            topic,
+            mastery_score: masteryScore,
+            last_updated: new Date().toISOString(),
+          })
+          .select()
+          .single();
+        
+        if (insertError) {
+          console.error('Insert also failed:', insertError);
+          return NextResponse.json(
+            { error: insertError.message, code: insertError.code },
+            { status: 500 }
+          );
+        }
+        
+        console.log('Insert succeeded after permission error');
+        return NextResponse.json(insertData);
+      }
+      
       return NextResponse.json(
-        { error: error.message },
+        { error: error.message, code: error.code, details: error },
         { status: 500 }
       );
     }
 
+    console.log('Mastery score saved successfully:', data);
     return NextResponse.json(data);
   } catch (error) {
+    console.error('Mastery score error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
     );
   }

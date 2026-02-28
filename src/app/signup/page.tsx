@@ -34,8 +34,7 @@ export default function SignupPage() {
     setLoading(true);
     const result = await signUp(email, password);
     if (result) {
-      // Redirect to role selection/diagnostic
-      router.push('/diagnostic-setup');
+      router.push('/dashboard');
     } else {
       setLocalError(error || 'Failed to sign up');
     }

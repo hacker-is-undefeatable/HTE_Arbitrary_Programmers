@@ -95,26 +95,57 @@ export const useProfile = (userId: string | null) => {
 
   useEffect(() => {
     if (!userId) {
+      setProfile(null);
+      setError(null);
       setLoading(false);
       return;
     }
 
-    const fetchProfile = async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+    setLoading(true);
+    setError(null);
 
-      if (error) {
-        setError(error.message);
-      } else {
-        setProfile(data);
+    let isMounted = true;
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    const fetchProfile = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+
+        if (!isMounted) return;
+
+        if (error) {
+          // If profile not found and we haven't max out retries, retry after delay
+          if (error.code === 'PGRST116' && retryCount < maxRetries) {
+            retryCount++;
+            console.log(`Profile not found, retrying... (${retryCount}/${maxRetries})`);
+            setTimeout(fetchProfile, 500);
+            return;
+          }
+          setError(error.message);
+        } else {
+          if (data) {
+            setProfile(data);
+          }
+        }
+        setLoading(false);
+      } catch (err) {
+        if (!isMounted) return;
+        console.error('Error fetching profile:', err);
+        setError(err instanceof Error ? err.message : 'Unknown error');
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchProfile();
+
+    return () => {
+      isMounted = false;
+    };
   }, [userId]);
 
   const updateProfile = async (updates: Partial<Profile>) => {
@@ -138,8 +169,9 @@ export const useProfile = (userId: string | null) => {
 
   const createProfile = async (profileData: Omit<Profile, 'created_at' | 'updated_at'>) => {
     const query = (supabase.from('profiles') as any);
+    // Use upsert to handle cases where profile already exists
     const { data, error } = await query
-      .insert([profileData])
+      .upsert([profileData], { onConflict: 'id' })
       .select()
       .single();
 

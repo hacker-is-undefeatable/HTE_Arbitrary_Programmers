@@ -5,8 +5,8 @@ import dynamic from 'next/dynamic';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AppShell } from '@/components/layout/app-shell';
 import { PYTHON_CHALLENGES } from '@/utils/quizData';
-import Link from 'next/link';
 
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
@@ -93,14 +93,8 @@ export default function LearnPythonPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <Link href="/dashboard" className="text-primary hover:underline">
-            ← Back to Dashboard
-          </Link>
-        </div>
-
+    <AppShell title="Python Challenges" subtitle="Practice coding with guided feedback">
+      <div className="mx-auto max-w-7xl">
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Left: Challenges List */}
           <div>
@@ -112,12 +106,12 @@ export default function LearnPythonPage() {
                   onClick={() => handleChallengeSelect(challenge.id)}
                   className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
                     selectedChallengeId === challenge.id
-                      ? 'border-primary bg-blue-50'
-                      : 'border-slate-200 hover:border-slate-300'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-ring/60'
                   }`}
                 >
                   <p className="font-medium text-sm">{challenge.title}</p>
-                  <p className="text-xs text-slate-600 mt-1">Difficulty: {challenge.difficulty}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Difficulty: {challenge.difficulty}</p>
                 </button>
               ))}
             </div>
@@ -136,7 +130,7 @@ export default function LearnPythonPage() {
                   {currentChallenge.test_cases && (
                     <div>
                       <p className="font-semibold text-sm mb-2">Test Cases:</p>
-                      <div className="bg-slate-100 p-3 rounded text-sm font-mono text-xs space-y-1">
+                      <div className="bg-muted p-3 rounded text-sm font-mono text-xs space-y-1">
                         {currentChallenge.test_cases.map((test, idx) => (
                           <div key={idx}>{test}</div>
                         ))}
@@ -214,7 +208,7 @@ export default function LearnPythonPage() {
 
             {/* AI Explanation */}
             {showExplanation && explanation && (
-              <Card className="bg-blue-50 border-blue-200">
+              <Card className="bg-primary/5 border-primary/20">
                 <CardHeader>
                   <CardTitle className="text-lg">💡 Debugging Help</CardTitle>
                 </CardHeader>
@@ -245,6 +239,6 @@ export default function LearnPythonPage() {
           </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }

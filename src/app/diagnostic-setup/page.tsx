@@ -7,6 +7,7 @@ import { useProfile } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AppShell } from '@/components/layout/app-shell';
 
 export default function DiagnosticSetupPage() {
   const router = useRouter();
@@ -67,13 +68,8 @@ export default function DiagnosticSetupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 px-4 py-8">
-      <div className="max-w-2xl mx-auto space-y-8">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold mb-2">Let's Get Started</h1>
-          <p className="text-slate-600">Tell us about yourself</p>
-        </div>
-
+    <AppShell title="Let's Get Started" subtitle="Tell us about yourself">
+      <div className="mx-auto max-w-2xl">
         <Card>
           <CardHeader>
             <CardTitle>Your Profile</CardTitle>
@@ -117,12 +113,12 @@ export default function DiagnosticSetupPage() {
                     onClick={() => setRole(option.value as 'high_school' | 'college')}
                     className={`p-4 rounded-lg border-2 text-left transition-all ${
                       role === option.value
-                        ? 'border-primary bg-blue-50'
-                        : 'border-slate-200 hover:border-slate-300'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-ring/60'
                     }`}
                   >
                     <div className="font-medium">{option.label}</div>
-                    <div className="text-sm text-slate-600">{option.description}</div>
+                    <div className="text-sm text-muted-foreground">{option.description}</div>
                   </button>
                 ))}
               </div>
@@ -166,12 +162,12 @@ export default function DiagnosticSetupPage() {
                     }
                     className={`p-3 rounded-lg border-2 text-center transition-all ${
                       explanationStyle === option.value
-                        ? 'border-primary bg-blue-50'
-                        : 'border-slate-200 hover:border-slate-300'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-ring/60'
                     }`}
                   >
                     <div className="font-medium text-sm">{option.label}</div>
-                    <div className="text-xs text-slate-600">{option.description}</div>
+                    <div className="text-xs text-muted-foreground">{option.description}</div>
                   </button>
                 ))}
               </div>
@@ -189,6 +185,6 @@ export default function DiagnosticSetupPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </AppShell>
   );
 }

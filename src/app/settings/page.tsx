@@ -7,7 +7,7 @@ import { useProfile } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import Link from 'next/link';
+import { AppShell } from '@/components/layout/app-shell';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -56,15 +56,8 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
-      <div className="max-w-2xl mx-auto">
-        <Link href="/dashboard" className="text-primary hover:underline mb-8 inline-block">
-          ← Back to Dashboard
-        </Link>
-
-        <h1 className="text-4xl font-bold mb-8">Settings</h1>
-
-        <div className="space-y-6">
+    <AppShell title="Settings" subtitle="Manage your profile and account">
+      <div className="mx-auto max-w-2xl space-y-6">
           {/* Profile Settings */}
           <Card>
             <CardHeader>
@@ -102,7 +95,7 @@ export default function SettingsPage() {
                   disabled
                   className="opacity-50 cursor-not-allowed"
                 />
-                <p className="text-xs text-slate-500">Contact support to change email</p>
+                <p className="text-xs text-muted-foreground">Contact support to change email</p>
               </div>
 
               {/* Role */}
@@ -118,8 +111,8 @@ export default function SettingsPage() {
                       onClick={() => setRole(option.value as 'high_school' | 'college')}
                       className={`p-3 rounded-lg border-2 text-center transition-all ${
                         role === option.value
-                          ? 'border-primary bg-blue-50'
-                          : 'border-slate-200 hover:border-slate-300'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-ring/60'
                       }`}
                     >
                       {option.label}
@@ -154,8 +147,8 @@ export default function SettingsPage() {
                       }
                       className={`p-3 rounded-lg border-2 text-center transition-all ${
                         explanationStyle === option.value
-                          ? 'border-primary bg-blue-50'
-                          : 'border-slate-200 hover:border-slate-300'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-ring/60'
                       }`}
                     >
                       {option.label}
@@ -189,15 +182,14 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>About DualPath AI</CardTitle>
             </CardHeader>
-            <CardContent className="text-sm text-slate-600">
+            <CardContent className="text-sm text-muted-foreground">
               <p>DualPath AI v0.1.0 - Hackathon Edition</p>
               <p className="mt-2">
                 An AI-powered personalized learning platform designed to help students master any subject through adaptive learning, intelligent feedback, and spaced repetition.
               </p>
             </CardContent>
           </Card>
-        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }

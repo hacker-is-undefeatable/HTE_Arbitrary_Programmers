@@ -22,13 +22,6 @@ import {
   Clock3,
 } from 'lucide-react';
 
-const MENU_ITEMS = [
-  { label: 'Learning', href: '/learning' },
-  { label: 'Lecture Notes', href: '/lecture-notes' },
-  { label: 'Quizzes', href: '/quizzes' },
-  { label: 'Flash cards', href: '/flash-cards' },
-];
-
 export default function DashboardPage() {
   const router = useRouter();
   const { user, loading: authLoading, signOut } = useAuth();
@@ -89,6 +82,7 @@ export default function DashboardPage() {
 
   const lectureCards = useMemo(() => {
     const cards = lectureSessions.slice(0, 4).map((session) => ({
+      sessionId: session.id,
       label: session.lecture_title || 'Untitled Lecture',
       value: `${(session.generated_quizzes || []).length} quizzes`,
       note: `${(session.generated_flashcards || []).length} flashcards generated`,
@@ -97,6 +91,7 @@ export default function DashboardPage() {
 
     while (cards.length < 4) {
       cards.push({
+        sessionId: null,
         label: 'No lecture yet',
         value: '0 quizzes',
         note: 'Create a lecture using Quick Create',
@@ -220,18 +215,6 @@ export default function DashboardPage() {
             </Link>
           </Button>
 
-          <div className="mt-4 space-y-1">
-            {MENU_ITEMS.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className="flex w-full items-center rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <span>{item.label}</span>
-              </Link>
-            ))}
-          </div>
-
           <div className="mt-auto space-y-1">
             <Link href="/profile" className="block">
               <button
@@ -285,14 +268,29 @@ export default function DashboardPage() {
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 {lectureCards.map((lecture, index) => (
                   <Card key={`${lecture.label}-${index}`} className="rounded-xl shadow-none">
-                    <CardHeader className="space-y-2 p-4">
-                      <CardDescription>{lecture.label}</CardDescription>
-                      <CardTitle className="text-3xl font-semibold tracking-tight">{lecture.value}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-1 p-4 pt-0 text-sm">
-                      <p className="font-medium">{lecture.note}</p>
-                      <p className="text-muted-foreground">{lecture.sub}</p>
-                    </CardContent>
+                    {lecture.sessionId ? (
+                      <Link href={`/lecture-notes/${lecture.sessionId}`} className="block rounded-xl transition-colors hover:bg-muted/30">
+                        <CardHeader className="space-y-2 p-4">
+                          <CardDescription>{lecture.label}</CardDescription>
+                          <CardTitle className="text-3xl font-semibold tracking-tight">{lecture.value}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-1 p-4 pt-0 text-sm">
+                          <p className="font-medium">{lecture.note}</p>
+                          <p className="text-muted-foreground">{lecture.sub}</p>
+                        </CardContent>
+                      </Link>
+                    ) : (
+                      <>
+                        <CardHeader className="space-y-2 p-4">
+                          <CardDescription>{lecture.label}</CardDescription>
+                          <CardTitle className="text-3xl font-semibold tracking-tight">{lecture.value}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-1 p-4 pt-0 text-sm">
+                          <p className="font-medium">{lecture.note}</p>
+                          <p className="text-muted-foreground">{lecture.sub}</p>
+                        </CardContent>
+                      </>
+                    )}
                   </Card>
                 ))}
               </div>
@@ -330,8 +328,7 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="inline-flex items-center gap-1 rounded-md border bg-muted/20 p-1 text-sm">
-                    <Link href="/learning" className="rounded-sm bg-background px-3 py-1 shadow-sm">Learning</Link>
-                    <Link href="/lecture-notes" className="rounded-sm px-3 py-1 text-muted-foreground">Lecture Notes</Link>
+                    <Link href="/lecture-notes" className="rounded-sm bg-background px-3 py-1 shadow-sm">Learning</Link>
                     <Link href="/quizzes" className="rounded-sm px-3 py-1 text-muted-foreground">Quizzes</Link>
                     <Link href="/flash-cards" className="rounded-sm px-3 py-1 text-muted-foreground">Flash cards</Link>
                   </div>

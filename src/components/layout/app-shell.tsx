@@ -19,16 +19,10 @@ interface AppShellProps {
   subtitle?: string;
   children: ReactNode;
   rightSlot?: ReactNode;
+  outsideTopSlot?: ReactNode;
 }
 
-const MENU_ITEMS = [
-  { label: 'Learning', href: '/learning' },
-  { label: 'Lecture Notes', href: '/lecture-notes' },
-  { label: 'Quizzes', href: '/quizzes' },
-  { label: 'Flash cards', href: '/flash-cards' },
-];
-
-export function AppShell({ title, subtitle, children, rightSlot }: AppShellProps) {
+export function AppShell({ title, subtitle, children, rightSlot, outsideTopSlot }: AppShellProps) {
   const router = useRouter();
   const { signOut } = useAuth();
 
@@ -54,18 +48,6 @@ export function AppShell({ title, subtitle, children, rightSlot }: AppShellProps
               Quick Create
             </Link>
           </Button>
-
-          <div className="mt-4 space-y-1">
-            {MENU_ITEMS.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className="flex w-full items-center rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <span>{item.label}</span>
-              </Link>
-            ))}
-          </div>
 
           <div className="mt-auto space-y-1">
             <Link
@@ -101,6 +83,7 @@ export function AppShell({ title, subtitle, children, rightSlot }: AppShellProps
         </aside>
 
         <main className="w-full p-4 lg:p-5">
+          {outsideTopSlot ? <div className="mb-3">{outsideTopSlot}</div> : null}
           <div className="rounded-xl border bg-card">
             <div className="flex items-center justify-between border-b px-4 py-3 sm:px-6">
               <div>

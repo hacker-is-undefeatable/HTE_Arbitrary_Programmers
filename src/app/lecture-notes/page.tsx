@@ -12,7 +12,7 @@ const NOTES = [
 
 export default function LectureNotesPage() {
   return (
-    <AppShell title="Lecture Notes" subtitle="Review key concepts quickly">
+    <AppShell title="Learning" subtitle="Review key concepts quickly">
       <div className="grid gap-4 md:grid-cols-2">
         {NOTES.map((note) => (
           <Card key={note.title}>

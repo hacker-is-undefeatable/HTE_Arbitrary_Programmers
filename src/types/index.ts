@@ -31,9 +31,16 @@ export interface QuizAttempt {
   user_id: string;
   subject: Subject;
   topic: string;
+  attempt_id?: string;
+  session_id?: string | null;
+  total_questions?: number | null;
+  correct_count?: number | null;
+  quiz_source?: 'standard' | 'lecture-generated' | 'adaptive';
   question: string;
+  options?: string[] | null;
   user_answer: string;
   correct_answer: string;
+  explanation?: string | null;
   is_correct: boolean;
   timestamp: string;
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { createServerClient } from '@/utils/supabase';
 
 /**
@@ -10,7 +11,27 @@ export async function POST(request: NextRequest) {
     const supabase = createServerClient();
     const body = await request.json();
 
-    const { userId, subject, topic, question, userAnswer, correctAnswer, isCorrect } = body;
+    const {
+      userId,
+      subject,
+      topic,
+      question,
+      options,
+      userAnswer,
+      correctAnswer,
+      explanation,
+      isCorrect,
+      attemptId,
+      sessionId,
+      totalQuestions,
+      correctCount,
+      quizSource,
+    } = body;
+
+    const resolvedAttemptId =
+      typeof attemptId === 'string' && attemptId.trim().length > 0 ? attemptId : randomUUID();
+    const resolvedQuizSource =
+      typeof quizSource === 'string' && quizSource.trim().length > 0 ? quizSource : 'standard';
 
     if (!userId || !subject || !topic || !question) {
       console.error('Quiz attempt: Missing required fields', { userId, subject, topic, question });
@@ -28,9 +49,16 @@ export async function POST(request: NextRequest) {
           user_id: userId,
           subject,
           topic,
+          attempt_id: resolvedAttemptId,
+          session_id: sessionId,
+          total_questions: totalQuestions,
+          correct_count: correctCount,
+          quiz_source: resolvedQuizSource,
           question,
+          options,
           user_answer: userAnswer,
           correct_answer: correctAnswer,
+          explanation,
           is_correct: isCorrect,
           timestamp: new Date().toISOString(),
         },
@@ -75,6 +103,8 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId');
     const subject = searchParams.get('subject');
     const topic = searchParams.get('topic');
+    const sessionId = searchParams.get('sessionId');
+    const quizSource = searchParams.get('quizSource');
 
     if (!userId) {
       return NextResponse.json(
@@ -90,6 +120,8 @@ export async function GET(request: NextRequest) {
 
     if (subject) query = query.eq('subject', subject);
     if (topic) query = query.eq('topic', topic);
+    if (sessionId) query = query.eq('session_id', sessionId);
+    if (quizSource) query = query.eq('quiz_source', quizSource);
 
     const { data, error } = await query.order('timestamp', { ascending: false });
 

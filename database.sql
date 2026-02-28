@@ -70,17 +70,35 @@ create table if not exists public.quiz_attempts (
   user_id uuid references public.profiles(id) on delete cascade not null,
   subject text not null check (subject in ('math', 'python')),
   topic text not null,
+  attempt_id uuid default gen_random_uuid() not null,
+  session_id uuid,
+  total_questions integer check (total_questions >= 1),
+  correct_count integer check (correct_count >= 0),
+  quiz_source text default 'standard' check (quiz_source in ('standard', 'lecture-generated', 'adaptive')),
   question text not null,
+  options jsonb,
   user_answer text not null,
   correct_answer text not null,
+  explanation text,
   is_correct boolean not null,
   timestamp timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+alter table public.quiz_attempts
+  add column if not exists attempt_id uuid default gen_random_uuid() not null,
+  add column if not exists session_id uuid,
+  add column if not exists total_questions integer check (total_questions >= 1),
+  add column if not exists correct_count integer check (correct_count >= 0),
+  add column if not exists quiz_source text default 'standard' check (quiz_source in ('standard', 'lecture-generated', 'adaptive')),
+  add column if not exists options jsonb,
+  add column if not exists explanation text;
 
 -- Index for faster queries
 create index if not exists idx_quiz_attempts_user_id on public.quiz_attempts(user_id);
 create index if not exists idx_quiz_attempts_timestamp on public.quiz_attempts(timestamp);
 create index if not exists idx_quiz_attempts_subject_topic on public.quiz_attempts(subject, topic);
+create index if not exists idx_quiz_attempts_attempt_id on public.quiz_attempts(attempt_id);
+create index if not exists idx_quiz_attempts_session_id on public.quiz_attempts(session_id);
 
 -- Enable RLS on quiz_attempts
 alter table public.quiz_attempts enable row level security;
@@ -211,6 +229,21 @@ create policy "Users can insert own lecture sessions"
 create policy "Users can update own lecture sessions"
   on public.lecture_sessions for update
   using ( auth.uid() = user_id );
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'quiz_attempts_session_id_fkey'
+  ) then
+    alter table public.quiz_attempts
+      add constraint quiz_attempts_session_id_fkey
+      foreign key (session_id)
+      references public.lecture_sessions(id)
+      on delete set null;
+  end if;
+end $$;
 
 -- 8. GENERATED_QUIZZES TABLE
 create table if not exists public.generated_quizzes (

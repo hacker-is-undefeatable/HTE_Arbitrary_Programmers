@@ -5,6 +5,7 @@
 create table if not exists public.profiles (
   id uuid references auth.users(id) on delete cascade not null primary key,
   name text,
+  age integer check (age >= 5 and age <= 120),
   role text not null check (role in ('high_school', 'college')),
   learning_goal text,
   preferred_explanation_style text default 'step-by-step' check (
@@ -13,6 +14,9 @@ create table if not exists public.profiles (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+alter table public.profiles
+  add column if not exists age integer check (age >= 5 and age <= 120);
 
 -- Enable RLS on profiles
 alter table public.profiles enable row level security;

@@ -37,6 +37,10 @@ export default function ProfilePage() {
               <span className="text-muted-foreground">Role</span>
               <span className="font-medium">{profile?.role || 'Not set'}</span>
             </div>
+            <div className="flex justify-between border-b pb-2">
+              <span className="text-muted-foreground">Age</span>
+              <span className="font-medium">{profile?.age ?? 'Not set'}</span>
+            </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Learning Goal</span>
               <span className="font-medium">{profile?.learning_goal || 'Not set'}</span>

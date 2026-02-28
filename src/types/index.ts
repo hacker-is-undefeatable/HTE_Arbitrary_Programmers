@@ -8,6 +8,7 @@ export type QuizDifficulty = 'easy' | 'medium' | 'hard';
 export interface Profile {
   id: string;
   name: string | null;
+  age: number | null;
   role: UserRole;
   learning_goal: string | null;
   preferred_explanation_style: ExplanationStyle;

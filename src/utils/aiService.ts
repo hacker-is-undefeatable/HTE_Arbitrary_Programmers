@@ -25,22 +25,22 @@ export const generateMistakeExplanation = async (
   correctAnswer: string,
   topic: string,
   explanationStyle: ExplanationStyle,
-  masteryLevel: number
+  age: number | null
 ): Promise<AIExplanation> => {
   const stylePrompt = getStylePrompt(explanationStyle);
-  const masteryAdaptation = getMasteryAdaptation(masteryLevel);
+  const ageAdaptation = getAgeAdaptation(age);
 
   const prompt = `You are an expert tutor explaining why a student's answer is incorrect.
 
 Topic: ${topic}
-Student's Mastery Level: ${masteryLevel}%
+Student Age: ${age ?? 'Not provided'}
 
 Question: ${question}
 Student's Answer: ${userAnswer}
 Correct Answer: ${correctAnswer}
 
 ${stylePrompt}
-${masteryAdaptation}
+${ageAdaptation}
 
 Please provide:
 1. A clear explanation of why the student's answer is incorrect
@@ -380,14 +380,24 @@ function getStylePrompt(style: ExplanationStyle): string {
 }
 
 /**
- * Get mastery-level adaptation for prompts
+ * Get age-based adaptation for prompts
  */
-function getMasteryAdaptation(masteryLevel: number): string {
-  if (masteryLevel < 40) {
-    return 'The student is a beginner. Use simple language and basic examples.';
-  } else if (masteryLevel <= 75) {
-    return 'The student is intermediate. You can use moderately complex explanations.';
-  } else {
-    return 'The student is advanced. Provide sophisticated explanations and edge cases.';
+function getAgeAdaptation(age: number | null): string {
+  if (!age || Number.isNaN(age) || age <= 0) {
+    return 'Use clear, accessible language suitable for a broad student audience.';
   }
+
+  if (age <= 12) {
+    return 'Use very simple language, short sentences, and concrete examples suitable for children.';
+  }
+
+  if (age <= 17) {
+    return 'Use student-friendly language with relatable examples for teenagers.';
+  }
+
+  if (age <= 22) {
+    return 'Use concise but slightly technical language suitable for young adults and early college students.';
+  }
+
+  return 'Use professional, concise language with clear reasoning and practical examples.';
 }

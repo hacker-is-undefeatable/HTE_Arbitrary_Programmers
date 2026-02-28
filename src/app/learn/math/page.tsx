@@ -72,8 +72,7 @@ export default function LearnMathPage() {
               correctAnswer: currentQuestion.correct_answer,
               topic: selectedTopic,
               explanationStyle: profile?.preferred_explanation_style || 'step-by-step',
-              masteryLevel: scores.find((s) => s.subject === 'math' && s.topic === selectedTopic)
-                ?.mastery_score || 50,
+              age: profile?.age ?? null,
             }),
           });
           const data = await res.json();

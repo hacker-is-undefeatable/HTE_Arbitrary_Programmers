@@ -25,7 +25,11 @@ type SessionItem = {
   summary: string | null;
   transcript: string | null;
   media_url: string | null;
+  media_file_name: string | null;
+  media_mime_type: string | null;
   notes_url: string | null;
+  notes_file_name: string | null;
+  notes_mime_type: string | null;
   created_at: string;
   generated_quizzes: QuizItem[];
   generated_flashcards: FlashcardItem[];
@@ -160,26 +164,54 @@ export default function LectureSessionDetailPage() {
                   <CardTitle>Uploaded Files</CardTitle>
                   <CardDescription>Lecture materials uploaded during quick create</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  {session.media_url ? (
-                    <p>
-                      <a href={session.media_url} target="_blank" rel="noreferrer" className="underline">
-                        Open media file
-                      </a>
-                    </p>
-                  ) : (
-                    <p className="text-muted-foreground">No media file saved.</p>
-                  )}
+                <CardContent className="space-y-6 text-sm">
+                  <div className="space-y-2">
+                    <p className="font-medium">Media File</p>
+                    {session.media_url ? (
+                      <div className="space-y-2 rounded-md border bg-muted/20 p-3">
+                        <p className="text-xs text-muted-foreground">
+                          {session.media_file_name || 'Uploaded media'}
+                        </p>
+                        {session.media_mime_type?.startsWith('video/') ? (
+                          <video controls className="max-h-[340px] w-full rounded-md" src={session.media_url} />
+                        ) : session.media_mime_type?.startsWith('audio/') ? (
+                          <audio controls className="w-full" src={session.media_url} />
+                        ) : (
+                          <p className="text-muted-foreground">Preview not available for this media format.</p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground">No media file saved.</p>
+                    )}
+                  </div>
 
-                  {session.notes_url ? (
-                    <p>
-                      <a href={session.notes_url} target="_blank" rel="noreferrer" className="underline">
-                        Open notes file
-                      </a>
-                    </p>
-                  ) : (
-                    <p className="text-muted-foreground">No notes file saved.</p>
-                  )}
+                  <div className="space-y-2">
+                    <p className="font-medium">Notes File</p>
+                    {session.notes_url ? (
+                      <div className="space-y-2 rounded-md border bg-muted/20 p-3">
+                        <p className="text-xs text-muted-foreground">
+                          {session.notes_file_name || 'Uploaded notes'}
+                        </p>
+                        {session.notes_mime_type === 'application/pdf' ? (
+                          <iframe
+                            src={session.notes_url}
+                            title="Lecture notes preview"
+                            className="h-[420px] w-full rounded-md border bg-background"
+                          />
+                        ) : session.notes_mime_type?.startsWith('image/') ? (
+                          <img
+                            src={session.notes_url}
+                            alt="Lecture notes preview"
+                            className="max-h-[420px] w-full rounded-md object-contain"
+                          />
+                        ) : (
+                          <p className="text-muted-foreground">Preview not available for this notes format.</p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground">No notes file saved.</p>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             )}

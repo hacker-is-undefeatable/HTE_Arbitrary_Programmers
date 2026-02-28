@@ -37,8 +37,9 @@ export async function uploadFileToSupabaseStorage(params: {
   await ensureBucketExists(params.supabase, bucket);
 
   const now = Date.now();
-  const ext = params.file.name.includes('.') ? params.file.name.split('.').pop() : 'bin';
-  const key = `quick-create/${params.userId}/${params.folder}/${now}-${sanitizeFileName(params.file.name)}.${ext}`;
+  const sanitizedName = sanitizeFileName(params.file.name || 'upload.bin');
+  const fileName = sanitizedName.includes('.') ? sanitizedName : `${sanitizedName}.bin`;
+  const key = `quick-create/${params.userId}/${params.folder}/${now}-${fileName}`;
 
   const body = Buffer.from(await params.file.arrayBuffer());
 

@@ -148,28 +148,31 @@ function saveSessionRecord(record: SessionRecord): void {
 function getNextDifficulty(current: DifficultyLevel, correctCount: number): {
   adjustment: 'Increase' | 'Maintain' | 'Decrease';
   next: DifficultyLevel;
+  step: number;
 } {
   const order: DifficultyLevel[] = ['L1', 'L2', 'L3', 'L4', 'L5'];
   const idx = order.indexOf(current);
+  const accuracy = (correctCount / QUESTIONS_PER_ROUND) * 100;
 
-  let adjustment: 'Increase' | 'Maintain' | 'Decrease' = 'Maintain';
-  let targetIdx = idx;
+  let step = 0;
+  if (accuracy === 100) step = 2;
+  else if (accuracy >= 80) step = 1;
+  else if (accuracy >= 60) step = 0;
+  else if (accuracy >= 40) step = -1;
+  else step = -2;
 
-  if (correctCount >= 4) {
-    adjustment = 'Increase';
-    targetIdx = Math.min(order.length - 1, idx + 1);
-  } else if (correctCount <= 1) {
-    adjustment = 'Decrease';
-    targetIdx = Math.max(0, idx - 1);
-  }
+  const targetIdx = Math.max(0, Math.min(order.length - 1, idx + step));
+  const adjustment: 'Increase' | 'Maintain' | 'Decrease' =
+    targetIdx > idx ? 'Increase' : targetIdx < idx ? 'Decrease' : 'Maintain';
 
-  return { adjustment, next: order[targetIdx] };
+  return { adjustment, next: order[targetIdx], step };
 }
 
 function getMasterySignal(correctCount: number): 'Struggling' | 'Developing' | 'Proficient' | 'Advanced' {
-  if (correctCount <= 1) return 'Struggling';
-  if (correctCount <= 3) return 'Developing';
-  if (correctCount === 4) return 'Proficient';
+  const accuracy = (correctCount / QUESTIONS_PER_ROUND) * 100;
+  if (accuracy < 40) return 'Struggling';
+  if (accuracy < 60) return 'Developing';
+  if (accuracy < 80) return 'Proficient';
   return 'Advanced';
 }
 
@@ -226,20 +229,20 @@ function buildRoundSummary(
   });
 
   const masterySignal = getMasterySignal(score);
-  const { adjustment, next } = getNextDifficulty(difficulty, score);
+  const { adjustment, next, step } = getNextDifficulty(difficulty, score);
+  const pct = accuracy.toFixed(0);
 
   let rationale: string;
-  if (adjustment === 'Increase') {
-    rationale =
-      score >= 5
-        ? 'High accuracy this round signals strong mastery, so the next round steps up in difficulty.'
-        : 'You answered most questions correctly, so the system is gently increasing challenge.';
-  } else if (adjustment === 'Decrease') {
-    rationale =
-      'This round was challenging; reducing difficulty slightly helps focus on consolidating core ideas.';
+  if (step >= 2) {
+    rationale = `Perfect score (${pct}%) -- jumping up 2 difficulty levels to keep you challenged.`;
+  } else if (step === 1) {
+    rationale = `Strong accuracy (${pct}%) -- stepping up 1 difficulty level.`;
+  } else if (step === 0 && adjustment === 'Maintain') {
+    rationale = `Solid accuracy (${pct}%) -- the current difficulty level is a good fit, maintaining it.`;
+  } else if (step === -1) {
+    rationale = `Below-target accuracy (${pct}%) -- stepping down 1 level to reinforce fundamentals.`;
   } else {
-    rationale =
-      'Mixed performance suggests the current difficulty is a good fit, so the level is maintained.';
+    rationale = `Low accuracy (${pct}%) -- dropping 2 levels to rebuild confidence on core concepts.`;
   }
 
   return {

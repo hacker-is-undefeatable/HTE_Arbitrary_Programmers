@@ -305,12 +305,12 @@ Return ONLY valid JSON as an array of objects:
 
     const content = response.choices[0]?.message?.content || '[]';
     const parsed = parseJsonArrayResponse(content);
-
-    return (parsed as Array<{ question?: string; options?: unknown[]; correct_answer?: string; explanation?: string }>)
+    type QuizItem = { question?: unknown; options?: unknown; correct_answer?: unknown; explanation?: unknown };
+    return (parsed as QuizItem[])
       .filter((item) => item?.question && Array.isArray(item?.options) && item?.correct_answer)
       .map((item) => ({
         question: String(item.question),
-        options: (item.options || []).map((opt: unknown) => String(opt)).slice(0, 6),
+        options: (item.options as unknown[]).map((opt: unknown) => String(opt)).slice(0, 6),
         correct_answer: String(item.correct_answer),
         explanation: String(item.explanation || ''),
       }));

@@ -31,7 +31,8 @@ interface QuestionReview {
   studentOption: OptionKey | null;
   isCorrect: boolean;
   misconception: string | null;
-  reinforcementTip: string;
+  aiExplanation: string;
+  followUpQuestion: string;
 }
 
 interface RoundSummary {
@@ -70,8 +71,17 @@ interface SavedQuestionDetail {
   studentOption: OptionKey | null;
   isCorrect: boolean;
   misconception: string | null;
-  reinforcementTip: string;
+  aiExplanation: string;
+  followUpQuestion: string;
 }
+
+type AIReview = {
+  misconception: string;
+  explanation: string;
+  followUpQuestion: string;
+};
+
+type AIReviewMap = Record<string, AIReview>;
 
 interface SavedRoundDetail {
   round: number;
@@ -168,11 +178,13 @@ function buildRoundSummary(
   subject: QuizSubject,
   difficulty: DifficultyLevel,
   questions: MCQ[],
-  answers: Record<string, OptionKey | null>
+  answers: Record<string, OptionKey | null>,
+  aiReviews: AIReviewMap
 ): RoundSummary {
   const reviews: QuestionReview[] = questions.map((q) => {
     const studentOption = answers[q.id] ?? null;
     const isCorrect = studentOption === q.correctOption;
+    const aiReview = aiReviews[q.id];
 
     return {
       questionId: q.id,
@@ -181,8 +193,11 @@ function buildRoundSummary(
       correctExplanation: q.options[q.correctOption],
       studentOption,
       isCorrect,
-      misconception: isCorrect ? null : q.misconception,
-      reinforcementTip: q.reinforcementTip,
+      misconception: aiReview?.misconception || (isCorrect ? null : q.misconception),
+      aiExplanation:
+        aiReview?.explanation ||
+        (isCorrect ? 'Great work. You selected the correct option.' : q.reinforcementTip),
+      followUpQuestion: aiReview?.followUpQuestion || 'Try a similar question with different numbers.',
     };
   });
 
@@ -268,8 +283,15 @@ function buildSavedRoundDetail(
         correctOption: q.correctOption,
         studentOption,
         isCorrect,
-        misconception: isCorrect ? null : q.misconception,
-        reinforcementTip: q.reinforcementTip,
+        misconception:
+          summary.questionReviews.find((review) => review.questionId === q.id)?.misconception ||
+          (isCorrect ? null : q.misconception),
+        aiExplanation:
+          summary.questionReviews.find((review) => review.questionId === q.id)?.aiExplanation ||
+          (isCorrect ? 'Great work. You selected the correct option.' : q.reinforcementTip),
+        followUpQuestion:
+          summary.questionReviews.find((review) => review.questionId === q.id)?.followUpQuestion ||
+          'Try a similar question with different numbers.',
       };
     }),
   };
@@ -283,6 +305,7 @@ function AdaptiveQuiz({ subject, onComplete }: { subject: QuizSubject; onComplet
   const [currentSummary, setCurrentSummary] = useState<RoundSummary | null>(null);
   const [allSummaries, setAllSummaries] = useState<RoundSummary[]>([]);
   const [roundSubmitted, setRoundSubmitted] = useState(false);
+  const [analyzingRound, setAnalyzingRound] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
@@ -331,21 +354,94 @@ function AdaptiveQuiz({ subject, onComplete }: { subject: QuizSubject; onComplet
   }, [subject, loadRound]);
 
   const handleOptionChange = (questionId: string, option: OptionKey) => {
-    if (roundSubmitted) return;
+    if (roundSubmitted || analyzingRound) return;
     setAnswers((prev) => ({ ...prev, [questionId]: option }));
   };
 
-  const handleSubmitRound = () => {
-    if (roundSubmitted) return;
-    const summary = buildRoundSummary(round, subject, difficulty, currentQuestions, answers);
-    setCurrentSummary(summary);
-    setAllSummaries((prev) => [...prev, summary]);
-    setRoundSubmitted(true);
+  const generateAIReviews = useCallback(
+    async (questions: MCQ[], responseMap: Record<string, OptionKey | null>): Promise<AIReviewMap> => {
+      const reviewEntries = await Promise.all(
+        questions.map(async (question) => {
+          const userOption = responseMap[question.id] ?? null;
+          const userAnswer = userOption
+            ? `${userOption}) ${question.options[userOption]}`
+            : 'No answer selected';
 
-    savedRoundsRef.current = [
-      ...savedRoundsRef.current,
-      buildSavedRoundDetail(summary, currentQuestions, answers),
-    ];
+          const formattedQuestion = `${question.question}\nA) ${question.options.A}\nB) ${question.options.B}\nC) ${question.options.C}\nD) ${question.options.D}`;
+          const correctAnswer = `${question.correctOption}) ${question.options[question.correctOption]}`;
+
+          try {
+            const res = await fetch('/api/ai-explanation', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                question: formattedQuestion,
+                userAnswer,
+                correctAnswer,
+                topic: `${subject}-${question.concept}`,
+                explanationStyle: 'step-by-step',
+                age: null,
+              }),
+            });
+
+            if (!res.ok) {
+              throw new Error('Failed to generate AI explanation');
+            }
+
+            const data = await res.json();
+            return [
+              question.id,
+              {
+                misconception:
+                  typeof data?.misconception === 'string'
+                    ? data.misconception
+                    : question.misconception,
+                explanation:
+                  typeof data?.explanation === 'string'
+                    ? data.explanation
+                    : question.reinforcementTip,
+                followUpQuestion:
+                  typeof data?.follow_up_question === 'string'
+                    ? data.follow_up_question
+                    : 'Try a similar question with different numbers.',
+              },
+            ] as const;
+          } catch {
+            return [
+              question.id,
+              {
+                misconception: question.misconception,
+                explanation: question.reinforcementTip,
+                followUpQuestion: 'Try a similar question with different numbers.',
+              },
+            ] as const;
+          }
+        })
+      );
+
+      return Object.fromEntries(reviewEntries);
+    },
+    [subject]
+  );
+
+  const handleSubmitRound = async () => {
+    if (roundSubmitted || analyzingRound) return;
+
+    setAnalyzingRound(true);
+    try {
+      const aiReviews = await generateAIReviews(currentQuestions, answers);
+      const summary = buildRoundSummary(round, subject, difficulty, currentQuestions, answers, aiReviews);
+      setCurrentSummary(summary);
+      setAllSummaries((prev) => [...prev, summary]);
+      setRoundSubmitted(true);
+
+      savedRoundsRef.current = [
+        ...savedRoundsRef.current,
+        buildSavedRoundDetail(summary, currentQuestions, answers),
+      ];
+    } finally {
+      setAnalyzingRound(false);
+    }
   };
 
   const handleNextRound = async () => {
@@ -471,11 +567,16 @@ function AdaptiveQuiz({ subject, onComplete }: { subject: QuizSubject; onComplet
               <Button
                 onClick={handleSubmitRound}
                 disabled={
+                  analyzingRound ||
                   roundSubmitted ||
                   currentQuestions.some((q) => (answers[q.id] ?? null) === null)
                 }
               >
-                {roundSubmitted ? 'Round Submitted' : 'Submit Round'}
+                {roundSubmitted
+                  ? 'Round Submitted'
+                  : analyzingRound
+                    ? 'Generating AI Explanations...'
+                    : 'Submit Round'}
               </Button>
             </div>
           </CardContent>
@@ -527,8 +628,11 @@ function AdaptiveQuiz({ subject, onComplete }: { subject: QuizSubject; onComplet
                       <span className="font-semibold">Misconception Detected:</span> <MathText>{r.misconception}</MathText>
                     </p>
                   )}
+                  <p className="mb-1">
+                    <span className="font-semibold">AI Explanation:</span> <MathText>{r.aiExplanation}</MathText>
+                  </p>
                   <p>
-                    <span className="font-semibold">Reinforcement Tip:</span> <MathText>{r.reinforcementTip}</MathText>
+                    <span className="font-semibold">Follow-up Question:</span> <MathText>{r.followUpQuestion}</MathText>
                   </p>
                 </div>
               ))}
@@ -727,8 +831,13 @@ function SessionReview({
                       )}
 
                       <div className="rounded-md bg-blue-50 border border-blue-200 p-3">
-                        <p className="font-semibold text-blue-800 mb-1">Reinforcement Tip</p>
-                        <p className="text-blue-900"><MathText>{q.reinforcementTip}</MathText></p>
+                        <p className="font-semibold text-blue-800 mb-1">AI Explanation</p>
+                        <p className="text-blue-900"><MathText>{q.aiExplanation}</MathText></p>
+                      </div>
+
+                      <div className="rounded-md bg-slate-50 border border-slate-200 p-3">
+                        <p className="font-semibold text-slate-800 mb-1">Follow-up Question</p>
+                        <p className="text-slate-900"><MathText>{q.followUpQuestion}</MathText></p>
                       </div>
                     </CardContent>
                   </Card>
@@ -798,12 +907,15 @@ function SessionReview({
                           </div>
                         )}
 
-                        {!q.isCorrect && (
-                          <div className="rounded-md bg-blue-50 border border-blue-200 p-3">
-                            <p className="font-semibold text-blue-800 mb-1">Reinforcement Tip</p>
-                            <p className="text-blue-900"><MathText>{q.reinforcementTip}</MathText></p>
-                          </div>
-                        )}
+                        <div className="rounded-md bg-blue-50 border border-blue-200 p-3">
+                          <p className="font-semibold text-blue-800 mb-1">AI Explanation</p>
+                          <p className="text-blue-900"><MathText>{q.aiExplanation}</MathText></p>
+                        </div>
+
+                        <div className="rounded-md bg-slate-50 border border-slate-200 p-3">
+                          <p className="font-semibold text-slate-800 mb-1">Follow-up Question</p>
+                          <p className="text-slate-900"><MathText>{q.followUpQuestion}</MathText></p>
+                        </div>
                       </CardContent>
                     </Card>
                   ))}

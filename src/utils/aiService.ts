@@ -28,12 +28,14 @@ export const generateMistakeExplanation = async (
   age: number | null
 ): Promise<AIExplanation> => {
   const stylePrompt = getStylePrompt(explanationStyle);
+  const ageProfile = getAgeProfile(age);
   const ageAdaptation = getAgeAdaptation(age);
 
   const prompt = `You are an expert tutor explaining why a student's answer is incorrect.
 
 Topic: ${topic}
 Student Age: ${age ?? 'Not provided'}
+Age Band: ${ageProfile.band}
 
 Question: ${question}
 Student's Answer: ${userAnswer}
@@ -48,6 +50,13 @@ Please provide:
 3. Provide a step-by-step correction
 4. Generate a follow-up practice question to reinforce learning
 
+Length and depth requirements:
+- explanation: ${ageProfile.explanationLength}
+- misconception: ${ageProfile.misconceptionLength}
+- follow_up_question: ${ageProfile.followUpLength}
+- Include at least one age-appropriate example/analogy (${ageProfile.exampleGuideline})
+- Do not repeat generic wording across age groups; adapt vocabulary and reasoning depth to this student's age band.
+
 Format your response as JSON with these exact keys:
 {
   "explanation": "...",
@@ -60,21 +69,26 @@ Format your response as JSON with these exact keys:
       model: 'gpt-4o-mini',
       messages: [
         {
+          role: 'system',
+          content:
+            'You are a precise tutoring assistant. Return ONLY valid JSON with the required keys and no markdown fences.',
+        },
+        {
           role: 'user',
           content: prompt,
         },
       ],
-      temperature: 0.7,
-      max_tokens: 500,
+      temperature: 0.65,
+      max_tokens: 1100,
     });
 
     const content = response.choices[0]?.message?.content || '{}';
-    const parsed = JSON.parse(content);
+    const parsed = parseJsonObjectResponse(content);
 
     return {
-      explanation: parsed.explanation || '',
-      misconception: parsed.misconception || '',
-      follow_up_question: parsed.follow_up_question || '',
+      explanation: typeof parsed.explanation === 'string' ? parsed.explanation : '',
+      misconception: typeof parsed.misconception === 'string' ? parsed.misconception : '',
+      follow_up_question: typeof parsed.follow_up_question === 'string' ? parsed.follow_up_question : '',
     };
   } catch (error) {
     console.error('Error generating AI explanation:', error);
@@ -268,6 +282,33 @@ function parseJsonArrayResponse(content: string): unknown[] {
   }
 }
 
+function parseJsonObjectResponse(content: string): Record<string, unknown> {
+  const normalized = content.trim();
+  if (!normalized) return {};
+
+  const fencedMatch = normalized.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  const jsonCandidate = fencedMatch?.[1]?.trim() || normalized;
+
+  try {
+    const parsed = JSON.parse(jsonCandidate);
+    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    const objectStart = jsonCandidate.indexOf('{');
+    const objectEnd = jsonCandidate.lastIndexOf('}');
+
+    if (objectStart >= 0 && objectEnd > objectStart) {
+      try {
+        const parsed = JSON.parse(jsonCandidate.slice(objectStart, objectEnd + 1));
+        return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? parsed : {};
+      } catch {
+        return {};
+      }
+    }
+
+    return {};
+  }
+}
+
 export const generateLectureQuizzes = async (
   lectureTitle: string,
   transcript: string,
@@ -384,20 +425,76 @@ function getStylePrompt(style: ExplanationStyle): string {
  */
 function getAgeAdaptation(age: number | null): string {
   if (!age || Number.isNaN(age) || age <= 0) {
-    return 'Use clear, accessible language suitable for a broad student audience.';
+    return 'Use clear, accessible language suitable for a broad student audience. Balance clarity with moderate depth.';
   }
 
   if (age <= 12) {
-    return 'Use very simple language, short sentences, and concrete examples suitable for children.';
+    return 'Use very simple language, short sentences, and concrete examples suitable for children. Avoid jargon and explain each step explicitly.';
   }
 
   if (age <= 17) {
-    return 'Use student-friendly language with relatable examples for teenagers.';
+    return 'Use student-friendly language with relatable examples for teenagers. Introduce key terms briefly and connect ideas to school-level contexts.';
   }
 
   if (age <= 22) {
-    return 'Use concise but slightly technical language suitable for young adults and early college students.';
+    return 'Use concise but technical language suitable for young adults and early college students. Explain reasoning tradeoffs and common mistakes.';
   }
 
-  return 'Use professional, concise language with clear reasoning and practical examples.';
+  return 'Use professional language with rigorous reasoning, practical examples, and concise conceptual depth.';
+}
+
+function getAgeProfile(age: number | null): {
+  band: string;
+  explanationLength: string;
+  misconceptionLength: string;
+  followUpLength: string;
+  exampleGuideline: string;
+} {
+  if (!age || Number.isNaN(age) || age <= 0) {
+    return {
+      band: 'General Learner',
+      explanationLength: '170-240 words',
+      misconceptionLength: '50-90 words',
+      followUpLength: '1-2 sentences',
+      exampleGuideline: 'everyday learning scenario',
+    };
+  }
+
+  if (age <= 12) {
+    return {
+      band: 'Child (<=12)',
+      explanationLength: '120-180 words',
+      misconceptionLength: '30-60 words',
+      followUpLength: '1 short sentence',
+      exampleGuideline: 'simple daily-life analogy',
+    };
+  }
+
+  if (age <= 17) {
+    return {
+      band: 'Teen (13-17)',
+      explanationLength: '170-260 words',
+      misconceptionLength: '50-90 words',
+      followUpLength: '1-2 sentences',
+      exampleGuideline: 'school or exam-relevant example',
+    };
+  }
+
+  if (age <= 22) {
+    return {
+      band: 'Young Adult (18-22)',
+      explanationLength: '220-320 words',
+      misconceptionLength: '70-110 words',
+      followUpLength: '2-3 sentences',
+      exampleGuideline: 'college-level or practical application',
+    };
+  }
+
+  return {
+    band: 'Adult (23+)',
+    explanationLength: '260-380 words',
+    misconceptionLength: '80-130 words',
+    followUpLength: '2-3 sentences',
+    exampleGuideline: 'professional or real-world context',
+  };
 }

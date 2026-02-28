@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import CompanionWidget from './api/companion/CompanionWidget';
 
 export const metadata: Metadata = {
   title: 'DualPath AI',
@@ -16,8 +17,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="bg-gradient-to-br from-slate-50 to-slate-100 min-h-screen">
+      <body className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
         {children}
+        <CompanionWidget />
       </body>
     </html>
   );

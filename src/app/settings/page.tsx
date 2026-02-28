@@ -13,6 +13,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { profile, updateProfile, createProfile, loading: profileLoading } = useProfile(user?.id || null);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   const [name, setName] = useState(profile?.name || '');
   const [age, setAge] = useState(profile?.age ? String(profile.age) : '');
@@ -23,6 +24,23 @@ export default function SettingsPage() {
   );
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    const savedTheme = window.localStorage.getItem('theme');
+    const shouldUseDark = savedTheme
+      ? savedTheme === 'dark'
+      : window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    setIsDarkMode(shouldUseDark);
+    document.documentElement.classList.toggle('dark', shouldUseDark);
+  }, []);
+
+  const handleThemeToggle = () => {
+    const nextMode = !isDarkMode;
+    setIsDarkMode(nextMode);
+    document.documentElement.classList.toggle('dark', nextMode);
+    window.localStorage.setItem('theme', nextMode ? 'dark' : 'light');
+  };
 
   useEffect(() => {
     if (profile) {
@@ -197,7 +215,11 @@ export default function SettingsPage() {
               </div>
 
               {/* Save Button */}
-              <Button onClick={handleSave} disabled={saving} className="w-full">
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+                className="w-full bg-black text-white hover:bg-black/90 dark:bg-white dark:text-black dark:hover:bg-white/90"
+              >
                 {saving ? 'Saving...' : 'Save Settings'}
               </Button>
             </CardContent>
@@ -210,6 +232,9 @@ export default function SettingsPage() {
               <CardDescription>Manage your account</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <Button onClick={handleThemeToggle} variant="outline" className="w-full">
+                {isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              </Button>
               <Button onClick={handleSignOut} variant="destructive" className="w-full">
                 Sign Out
               </Button>

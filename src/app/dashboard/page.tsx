@@ -15,7 +15,6 @@ import {
   LogOut,
   Plus,
 } from 'lucide-react';
-import CompanionWidget from '@/app/api/companion/CompanionWidget';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -412,8 +411,6 @@ export default function DashboardPage() {
           )}
         </main>
       </div>
-
-      <CompanionWidget />
     </div>
   );
 }

@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       correctAnswer,
       topic,
       explanationStyle = 'step-by-step',
-      masteryLevel = 50,
+      age = null,
     } = body;
 
     if (!question || !userAnswer || !correctAnswer) {
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       correctAnswer,
       topic || 'general',
       explanationStyle,
-      masteryLevel
+      age
     );
 
     return NextResponse.json(explanation);

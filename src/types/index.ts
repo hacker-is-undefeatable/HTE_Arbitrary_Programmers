@@ -8,6 +8,7 @@ export type QuizDifficulty = 'easy' | 'medium' | 'hard';
 export interface Profile {
   id: string;
   name: string | null;
+  age: number | null;
   role: UserRole;
   learning_goal: string | null;
   preferred_explanation_style: ExplanationStyle;
@@ -53,16 +54,6 @@ export interface DiagnosticQuiz {
   user_id: string;
   subject: Subject;
   completed_at: string;
-}
-
-export interface CodingSubmission {
-  id: string;
-  user_id: string;
-  challenge_id: string;
-  code: string;
-  is_correct: boolean | null;
-  error_message: string | null;
-  submitted_at: string;
 }
 
 export interface AIExplanation {

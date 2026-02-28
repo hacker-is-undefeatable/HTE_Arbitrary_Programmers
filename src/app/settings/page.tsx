@@ -15,6 +15,7 @@ export default function SettingsPage() {
   const { profile, updateProfile, createProfile, loading: profileLoading } = useProfile(user?.id || null);
 
   const [name, setName] = useState(profile?.name || '');
+  const [age, setAge] = useState(profile?.age ? String(profile.age) : '');
   const [role, setRole] = useState(profile?.role || 'high_school');
   const [learningGoal, setLearningGoal] = useState(profile?.learning_goal || '');
   const [explanationStyle, setExplanationStyle] = useState(
@@ -26,6 +27,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (profile) {
       setName(profile.name || '');
+      setAge(profile.age ? String(profile.age) : '');
       setRole(profile.role || 'high_school');
       setLearningGoal(profile.learning_goal || '');
       setExplanationStyle(profile.preferred_explanation_style || 'step-by-step');
@@ -36,10 +38,18 @@ export default function SettingsPage() {
     setSaving(true);
     setMessage('');
 
+    const parsedAge = Number(age);
+    if (!age || Number.isNaN(parsedAge) || parsedAge < 5 || parsedAge > 120) {
+      setMessage('Please enter a valid age between 5 and 120');
+      setSaving(false);
+      return;
+    }
+
     const result = profile
       ? await updateProfile({
           id: profile.id,
           name,
+          age: parsedAge,
           role: role as 'high_school' | 'college',
           learning_goal: learningGoal,
           preferred_explanation_style: explanationStyle as 'step-by-step' | 'conceptual' | 'visual',
@@ -48,6 +58,7 @@ export default function SettingsPage() {
       : await createProfile({
           id: user?.id || '',
           name,
+          age: parsedAge,
           role: role as 'high_school' | 'college',
           learning_goal: learningGoal,
           preferred_explanation_style: explanationStyle as 'step-by-step' | 'conceptual' | 'visual',
@@ -100,6 +111,18 @@ export default function SettingsPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Your name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Age</label>
+                <Input
+                  type="number"
+                  min={5}
+                  max={120}
+                  value={age}
+                  onChange={(e) => setAge(e.target.value)}
+                  placeholder="e.g., 16"
                 />
               </div>
 

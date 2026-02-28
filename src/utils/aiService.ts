@@ -25,22 +25,22 @@ export const generateMistakeExplanation = async (
   correctAnswer: string,
   topic: string,
   explanationStyle: ExplanationStyle,
-  masteryLevel: number
+  age: number | null
 ): Promise<AIExplanation> => {
   const stylePrompt = getStylePrompt(explanationStyle);
-  const masteryAdaptation = getMasteryAdaptation(masteryLevel);
+  const ageAdaptation = getAgeAdaptation(age);
 
   const prompt = `You are an expert tutor explaining why a student's answer is incorrect.
 
 Topic: ${topic}
-Student's Mastery Level: ${masteryLevel}%
+Student Age: ${age ?? 'Not provided'}
 
 Question: ${question}
 Student's Answer: ${userAnswer}
 Correct Answer: ${correctAnswer}
 
 ${stylePrompt}
-${masteryAdaptation}
+${ageAdaptation}
 
 Please provide:
 1. A clear explanation of why the student's answer is incorrect
@@ -137,75 +137,6 @@ Generate exactly ${count} question(s) in valid JSON format.`;
   } catch (error) {
     console.error('Error generating adaptive questions:', error);
     return [];
-  }
-};
-
-/**
- * Generate Python debugging explanation
- */
-export const generatePythonDebugExplanation = async (
-  code: string,
-  error: string,
-  explanationStyle: ExplanationStyle
-): Promise<{
-  explanation: string;
-  hint: string;
-  suggested_improvement: string;
-}> => {
-  const stylePrompt = getStylePrompt(explanationStyle);
-
-  const prompt = `You are an expert Python tutor. A student's code has an error and needs help understanding it.
-
-Code:
-\`\`\`python
-${code}
-\`\`\`
-
-Error Message:
-${error}
-
-${stylePrompt}
-
-Please provide:
-1. A clear explanation of what went wrong
-2. A helpful hint to guide the student
-3. A suggested improvement to the code
-
-Format your response as JSON:
-{
-  "explanation": "...",
-  "hint": "...",
-  "suggested_improvement": "..."
-}`;
-
-  try {
-    const response = await getOpenAIClient().chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 600,
-    });
-
-    const content = response.choices[0]?.message?.content || '{}';
-    const parsed = JSON.parse(content);
-
-    return {
-      explanation: parsed.explanation || '',
-      hint: parsed.hint || '',
-      suggested_improvement: parsed.suggested_improvement || '',
-    };
-  } catch (error) {
-    console.error('Error generating Python debug explanation:', error);
-    return {
-      explanation: 'Unable to generate explanation at this time.',
-      hint: 'Check the error message and review the Python documentation.',
-      suggested_improvement: 'Review your code logic.',
-    };
   }
 };
 
@@ -421,8 +352,8 @@ Return ONLY valid JSON as an array:
 
     const content = response.choices[0]?.message?.content || '[]';
     const parsed = parseJsonArrayResponse(content);
-    type FlashcardItem = { front?: unknown; back?: unknown };
-    return (parsed as FlashcardItem[])
+
+    return (parsed as Array<{ front?: unknown; back?: unknown }>)
       .filter((item) => item?.front && item?.back)
       .map((item) => ({
         front: String(item.front),
@@ -449,14 +380,24 @@ function getStylePrompt(style: ExplanationStyle): string {
 }
 
 /**
- * Get mastery-level adaptation for prompts
+ * Get age-based adaptation for prompts
  */
-function getMasteryAdaptation(masteryLevel: number): string {
-  if (masteryLevel < 40) {
-    return 'The student is a beginner. Use simple language and basic examples.';
-  } else if (masteryLevel <= 75) {
-    return 'The student is intermediate. You can use moderately complex explanations.';
-  } else {
-    return 'The student is advanced. Provide sophisticated explanations and edge cases.';
+function getAgeAdaptation(age: number | null): string {
+  if (!age || Number.isNaN(age) || age <= 0) {
+    return 'Use clear, accessible language suitable for a broad student audience.';
   }
+
+  if (age <= 12) {
+    return 'Use very simple language, short sentences, and concrete examples suitable for children.';
+  }
+
+  if (age <= 17) {
+    return 'Use student-friendly language with relatable examples for teenagers.';
+  }
+
+  if (age <= 22) {
+    return 'Use concise but slightly technical language suitable for young adults and early college students.';
+  }
+
+  return 'Use professional, concise language with clear reasoning and practical examples.';
 }

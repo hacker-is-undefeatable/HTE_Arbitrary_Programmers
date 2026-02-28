@@ -6,7 +6,7 @@ import {
   summarizeLectureFromTranscript,
 } from '@/utils/aiService';
 import { createServerClient } from '@/utils/supabase';
-import { isS3Configured, S3ConfigError, uploadFileToS3 } from '@/utils/awsStorage';
+import { uploadFileToSupabaseStorage } from '@/utils/supabaseStorage';
 
 async function readTextFile(file: File | null): Promise<string> {
   if (!file) return '';
@@ -66,36 +66,14 @@ export async function POST(request: NextRequest) {
     let mediaMessage = 'No media uploaded. Summary generated from notes only.';
     let mediaUrl: string | null = null;
     let notesUrl: string | null = null;
-    const warnings: string[] = [];
 
-    const canUploadToS3 = isS3Configured();
-    if (!canUploadToS3) {
-      warnings.push('AWS S3 is not configured. Uploaded files are processed but not stored in S3.');
-    }
-
-    if (mediaFile && canUploadToS3) {
+    if (mediaFile) {
       const folder = mediaFile.type.startsWith('video/') ? 'videos' : 'audio';
-      try {
-        mediaUrl = await uploadFileToS3({ userId, file: mediaFile, folder });
-      } catch (error) {
-        if (error instanceof S3ConfigError) {
-          warnings.push('Media file was processed but could not be uploaded to S3.');
-        } else {
-          throw error;
-        }
-      }
+      mediaUrl = await uploadFileToSupabaseStorage({ supabase, userId, file: mediaFile, folder });
     }
 
-    if (notesFile && canUploadToS3) {
-      try {
-        notesUrl = await uploadFileToS3({ userId, file: notesFile, folder: 'notes' });
-      } catch (error) {
-        if (error instanceof S3ConfigError) {
-          warnings.push('Notes file was processed but could not be uploaded to S3.');
-        } else {
-          throw error;
-        }
-      }
+    if (notesFile) {
+      notesUrl = await uploadFileToSupabaseStorage({ supabase, userId, file: notesFile, folder: 'notes' });
     }
 
     if (mediaFile) {
@@ -120,15 +98,12 @@ export async function POST(request: NextRequest) {
       transcriptText = transcript.text || '';
 
       if (!transcriptText) {
-        return NextResponse.json(
-          { error: 'Transcription completed but no transcript text was returned.' },
-          { status: 502 }
-        );
+        mediaMessage = 'Media uploaded, but no transcript text was returned.';
+      } else {
+        mediaMessage = mediaFile.type.startsWith('video/')
+          ? 'Video uploaded and transcribed (AssemblyAI handles media audio extraction).'
+          : 'Audio uploaded and transcribed successfully.';
       }
-
-      mediaMessage = mediaFile.type.startsWith('video/')
-        ? 'Video uploaded and transcribed (AssemblyAI handles media audio extraction).'
-        : 'Audio uploaded and transcribed successfully.';
     }
 
     const extractedNotesFromFile = await readTextFile(notesFile);
@@ -208,7 +183,6 @@ export async function POST(request: NextRequest) {
       notesDetected: Boolean(combinedNotes),
       mediaUrl,
       notesUrl,
-      warnings,
       quizzes: generatedQuizzes,
       flashcards: generatedFlashcards,
     });
@@ -257,5 +231,46 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Quick create history error:', error);
     return NextResponse.json({ error: 'Failed to fetch session history.' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = createServerClient();
+    const body = await request.json();
+
+    const userId = String(body?.userId || '').trim();
+    const sessionIds = Array.isArray(body?.sessionIds)
+      ? body.sessionIds
+          .map((id: unknown) => String(id || '').trim())
+          .filter((id: string) => Boolean(id))
+      : [];
+
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    }
+
+    if (sessionIds.length === 0) {
+      return NextResponse.json({ error: 'sessionIds is required' }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from('lecture_sessions')
+      .delete()
+      .eq('user_id', userId)
+      .in('id', sessionIds)
+      .select('id');
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      deletedCount: data?.length || 0,
+      deletedIds: (data || []).map((item) => item.id),
+    });
+  } catch (error) {
+    console.error('Quick create delete error:', error);
+    return NextResponse.json({ error: 'Failed to delete lecture sessions.' }, { status: 500 });
   }
 }

@@ -43,12 +43,40 @@ export const useAuth = () => {
     };
   }, []);
 
-  const signUp = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+  const signUp = async (email: string, password: string, age: number) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          age,
+        },
+      },
+    });
     if (error) {
       setError(error.message);
       return null;
     }
+
+    if (data.user) {
+      const query = (supabase.from('profiles') as any);
+      const { error: profileError } = await query.upsert(
+        [
+          {
+            id: data.user.id,
+            age,
+            role: 'high_school',
+            preferred_explanation_style: 'step-by-step',
+          },
+        ],
+        { onConflict: 'id' }
+      );
+
+      if (profileError) {
+        console.warn('Profile creation during signup failed:', profileError.message);
+      }
+    }
+
     return data;
   };
 

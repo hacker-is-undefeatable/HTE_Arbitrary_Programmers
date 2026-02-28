@@ -14,6 +14,7 @@ export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [age, setAge] = useState('');
   const [loading, setLoading] = useState(false);
   const [localError, setLocalError] = useState('');
 
@@ -31,8 +32,14 @@ export default function SignupPage() {
       return;
     }
 
+    const parsedAge = Number(age);
+    if (!age || Number.isNaN(parsedAge) || parsedAge < 5 || parsedAge > 120) {
+      setLocalError('Please enter a valid age between 5 and 120');
+      return;
+    }
+
     setLoading(true);
-    const result = await signUp(email, password);
+    const result = await signUp(email, password, parsedAge);
     if (result) {
       router.push('/dashboard');
     } else {
@@ -63,6 +70,18 @@ export default function SignupPage() {
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Age</label>
+                <Input
+                  type="number"
+                  min={5}
+                  max={120}
+                  placeholder="e.g., 16"
+                  value={age}
+                  onChange={(e) => setAge(e.target.value)}
                   required
                 />
               </div>

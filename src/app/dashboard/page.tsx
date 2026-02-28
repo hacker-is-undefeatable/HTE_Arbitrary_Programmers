@@ -3,11 +3,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { useProfile, useMasteryScores } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { calculateAverageMastery } from '@/utils/masteryEngine';
-import { getTodayRevisionItems } from '@/utils/revisionEngine';
 import Link from 'next/link';
 import {
   Circle,
@@ -16,26 +14,22 @@ import {
   UserCircle,
   LogOut,
   Plus,
-  Columns,
-  ChevronDown,
-  Check,
-  Clock3,
 } from 'lucide-react';
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user, loading: authLoading, signOut } = useAuth();
   const { profile, loading: profileLoading } = useProfile(user?.id || null);
-  const { scores, loading: scoresLoading } = useMasteryScores(user?.id || null);
-  const [revisionItems, setRevisionItems] = useState<any[]>([]);
   const [lectureSessions, setLectureSessions] = useState<any[]>([]);
   const [revisionTimeLogs, setRevisionTimeLogs] = useState<any[]>([]);
-
-  const avgMastery = useMemo(() => calculateAverageMastery(scores), [scores]);
-  const topScores = useMemo(() => [...scores].sort((left, right) => right.mastery_score - left.mastery_score).slice(0, 6), [scores]);
+  const [batchDeleteMode, setBatchDeleteMode] = useState(false);
+  const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
+  const [showDeleteWarning, setShowDeleteWarning] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   const revisionChart = useMemo(() => {
-    const days = 14;
+    const days = 7;
     const buckets: Record<string, number> = {};
 
     for (let i = days - 1; i >= 0; i--) {
@@ -81,73 +75,99 @@ export default function DashboardPage() {
   }, [revisionTimeLogs]);
 
   const lectureCards = useMemo(() => {
-    const cards = lectureSessions.slice(0, 4).map((session) => ({
+    return lectureSessions.map((session) => ({
       sessionId: session.id,
       label: session.lecture_title || 'Untitled Lecture',
       value: `${(session.generated_quizzes || []).length} quizzes`,
       note: `${(session.generated_flashcards || []).length} flashcards generated`,
       sub: `Created ${new Date(session.created_at).toLocaleDateString()}`,
     }));
-
-    while (cards.length < 4) {
-      cards.push({
-        sessionId: null,
-        label: 'No lecture yet',
-        value: '0 quizzes',
-        note: 'Create a lecture using Quick Create',
-        sub: 'Saved sessions from Supabase will appear here',
-      });
-    }
-
-    return cards;
   }, [lectureSessions]);
 
-  useEffect(() => {
-    if (user?.id && !scoresLoading) {
-      const fetchRevision = async () => {
-        try {
-          const res = await fetch(`/api/revision-schedule?userId=${user.id}`);
-          if (!res.ok) {
-            console.warn('Failed to fetch revision schedule:', res.status);
-            setRevisionItems([]);
-            return;
-          }
-          const data = await res.json();
-          const today = getTodayRevisionItems(data);
-          setRevisionItems(today);
-        } catch (error) {
-          console.warn('Error fetching revision schedule:', error);
-          setRevisionItems([]);
-        }
-      };
-      fetchRevision();
+  const allSelected = lectureCards.length > 0 && selectedSessionIds.length === lectureCards.length;
+
+  const toggleSessionSelection = (sessionId: string) => {
+    setSelectedSessionIds((prev) =>
+      prev.includes(sessionId) ? prev.filter((id) => id !== sessionId) : [...prev, sessionId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (allSelected) {
+      setSelectedSessionIds([]);
+      return;
     }
-  }, [user?.id, scoresLoading]);
+    setSelectedSessionIds(lectureCards.map((lecture) => lecture.sessionId));
+  };
+
+  const handleToggleBatchDeleteMode = () => {
+    if (batchDeleteMode) {
+      setBatchDeleteMode(false);
+      setSelectedSessionIds([]);
+      setShowDeleteWarning(false);
+      setActionError('');
+      return;
+    }
+    setBatchDeleteMode(true);
+  };
+
+  const fetchSessionData = async () => {
+    if (!user?.id) return;
+
+    try {
+      const [sessionsRes, revisionTimeRes] = await Promise.all([
+        fetch(`/api/quick-create?userId=${user.id}`),
+        fetch(`/api/revision-time?userId=${user.id}`),
+      ]);
+
+      if (sessionsRes.ok) {
+        const sessions = await sessionsRes.json();
+        setLectureSessions(Array.isArray(sessions) ? sessions : []);
+      }
+
+      if (revisionTimeRes.ok) {
+        const revisionLogs = await revisionTimeRes.json();
+        setRevisionTimeLogs(Array.isArray(revisionLogs) ? revisionLogs : []);
+      }
+    } catch (error) {
+      console.warn('Failed to fetch dashboard session data:', error);
+    }
+  };
+
+  const confirmDeleteSelected = async () => {
+    if (!user?.id || selectedSessionIds.length === 0) return;
+
+    setDeleting(true);
+    setActionError('');
+
+    try {
+      const response = await fetch('/api/quick-create', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          sessionIds: selectedSessionIds,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete selected lectures.');
+      }
+
+      setSelectedSessionIds([]);
+      setShowDeleteWarning(false);
+      setBatchDeleteMode(false);
+      await fetchSessionData();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Failed to delete selected lectures.');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     if (!user?.id) return;
-
-    const fetchSessionData = async () => {
-      try {
-        const [sessionsRes, revisionTimeRes] = await Promise.all([
-          fetch(`/api/quick-create?userId=${user.id}`),
-          fetch(`/api/revision-time?userId=${user.id}`),
-        ]);
-
-        if (sessionsRes.ok) {
-          const sessions = await sessionsRes.json();
-          setLectureSessions(Array.isArray(sessions) ? sessions : []);
-        }
-
-        if (revisionTimeRes.ok) {
-          const revisionLogs = await revisionTimeRes.json();
-          setRevisionTimeLogs(Array.isArray(revisionLogs) ? revisionLogs : []);
-        }
-      } catch (error) {
-        console.warn('Failed to fetch dashboard session data:', error);
-      }
-    };
-
     fetchSessionData();
   }, [user?.id]);
 
@@ -162,7 +182,7 @@ export default function DashboardPage() {
     router.push('/login');
   };
 
-  if (authLoading || profileLoading || scoresLoading) {
+  if (authLoading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -260,40 +280,69 @@ export default function DashboardPage() {
         <main className="w-full p-4 lg:p-5">
           <div className="rounded-xl border bg-card">
             <div className="flex items-center justify-between border-b px-4 py-3 sm:px-6">
-              <h1 className="text-sm font-medium sm:text-base">Dashboards</h1>
-              <div className="text-sm text-muted-foreground">—</div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-sm font-medium sm:text-base">Dashboards</h1>
+                <Button variant="outline" size="sm" onClick={handleToggleBatchDeleteMode}>
+                  {batchDeleteMode ? 'Cancel Batch Delete' : 'Batch Delete'}
+                </Button>
+              </div>
+              {batchDeleteMode ? (
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-muted-foreground">{selectedSessionIds.length} selected</p>
+                  <Button variant="outline" size="sm" onClick={handleSelectAll}>
+                    {allSelected ? 'Unselect All' : 'Select All'}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setShowDeleteWarning(true)}
+                    disabled={selectedSessionIds.length === 0}
+                  >
+                    Delete Selected
+                  </Button>
+                </div>
+              ) : (
+                <div />
+              )}
             </div>
 
             <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {lectureCards.map((lecture, index) => (
-                  <Card key={`${lecture.label}-${index}`} className="rounded-xl shadow-none">
-                    {lecture.sessionId ? (
+              {lectureCards.length > 0 ? (
+                <>
+                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  {lectureCards.map((lecture) => (
+                    <Card key={lecture.sessionId} className="relative rounded-xl shadow-none">
+                      {batchDeleteMode ? (
+                        <label className="absolute right-3 top-3 z-10 inline-flex items-center rounded-md bg-background/80 p-1">
+                          <input
+                            type="checkbox"
+                            checked={selectedSessionIds.includes(lecture.sessionId)}
+                            onChange={() => toggleSessionSelection(lecture.sessionId)}
+                            className="h-4 w-4 rounded border border-black accent-black"
+                          />
+                        </label>
+                      ) : null}
                       <Link href={`/lecture-notes/${lecture.sessionId}`} className="block rounded-xl transition-colors hover:bg-muted/30">
                         <CardHeader className="space-y-2 p-4">
-                          <CardDescription>{lecture.label}</CardDescription>
-                          <CardTitle className="text-3xl font-semibold tracking-tight">{lecture.value}</CardTitle>
+                          <CardDescription className="text-lg font-semibold text-foreground">{lecture.label}</CardDescription>
+                          <CardTitle className="text-base font-medium tracking-normal text-muted-foreground">{lecture.value}</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-1 p-4 pt-0 text-sm">
                           <p className="font-medium">{lecture.note}</p>
                           <p className="text-muted-foreground">{lecture.sub}</p>
                         </CardContent>
                       </Link>
-                    ) : (
-                      <>
-                        <CardHeader className="space-y-2 p-4">
-                          <CardDescription>{lecture.label}</CardDescription>
-                          <CardTitle className="text-3xl font-semibold tracking-tight">{lecture.value}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-1 p-4 pt-0 text-sm">
-                          <p className="font-medium">{lecture.note}</p>
-                          <p className="text-muted-foreground">{lecture.sub}</p>
-                        </CardContent>
-                      </>
-                    )}
-                  </Card>
-                ))}
-              </div>
+                    </Card>
+                  ))}
+                </div>
+                </>
+              ) : (
+                <Card className="rounded-xl shadow-none">
+                  <CardContent className="p-4 text-sm text-muted-foreground">
+                    No lecture yet. Create a lecture using Quick Create.
+                  </CardContent>
+                </Card>
+              )}
 
               <Card className="rounded-xl shadow-none">
                 <CardHeader className="flex flex-row items-start justify-between gap-3 p-4">
@@ -317,86 +366,49 @@ export default function DashboardPage() {
                     </svg>
                   </div>
 
-                  <div className="grid grid-cols-7 gap-2 text-center text-xs text-muted-foreground sm:grid-cols-14">
+                  <div className="grid grid-cols-7 gap-2 text-center text-xs text-muted-foreground">
                     {revisionChart.labels.map((label) => (
                       <span key={label}>{label}</span>
                     ))}
                   </div>
                 </CardContent>
               </Card>
-
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="inline-flex items-center gap-1 rounded-md border bg-muted/20 p-1 text-sm">
-                    <Link href="/lecture-notes" className="rounded-sm bg-background px-3 py-1 shadow-sm">Learning</Link>
-                    <Link href="/quizzes" className="rounded-sm px-3 py-1 text-muted-foreground">Quizzes</Link>
-                    <Link href="/flash-cards" className="rounded-sm px-3 py-1 text-muted-foreground">Flash cards</Link>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" className="h-9">
-                      <Columns className="mr-2 h-4 w-4" />
-                      Customize Columns
-                      <ChevronDown className="ml-2 h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" className="h-9">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Section
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="overflow-hidden rounded-xl border">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/30 text-muted-foreground">
-                      <tr className="text-left">
-                        <th className="px-3 py-2 font-medium">Header</th>
-                        <th className="px-3 py-2 font-medium">Section Type</th>
-                        <th className="px-3 py-2 font-medium">Status</th>
-                        <th className="px-3 py-2 font-medium">Target</th>
-                        <th className="px-3 py-2 font-medium">Limit</th>
-                        <th className="px-3 py-2 font-medium">Reviewer</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(topScores.length > 0 ? topScores : [{ topic: 'Profile setup pending', mastery_score: avgMastery }]).map((score, index) => (
-                        <tr key={`${score.topic}-${index}`} className="border-t">
-                          <td className="px-3 py-3">{score.topic}</td>
-                          <td className="px-3 py-3">
-                            <span className="rounded-full border px-2 py-1 text-xs">{profile.role === 'high_school' ? 'Math' : 'Python'}</span>
-                          </td>
-                          <td className="px-3 py-3">
-                            <span className="inline-flex items-center rounded-full border px-2 py-1 text-xs">
-                              {score.mastery_score >= 70 ? (
-                                <>
-                                  <Check className="mr-1 h-3 w-3" />
-                                  Completed
-                                </>
-                              ) : (
-                                <>
-                                  <Clock3 className="mr-1 h-3 w-3" />
-                                  In Process
-                                </>
-                              )}
-                            </span>
-                          </td>
-                          <td className="px-3 py-3">{score.mastery_score}%</td>
-                          <td className="px-3 py-3">100%</td>
-                          <td className="px-3 py-3">{profile.name}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {revisionItems.length > 0 && (
-                  <div className="rounded-xl border bg-muted/20 p-3 text-sm text-muted-foreground">
-                    Next revision queue: {revisionItems.slice(0, 3).map((item) => item.topic).join(' • ')}
-                  </div>
-                )}
-              </div>
             </div>
           </div>
+
+          {showDeleteWarning && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+              <Card className="w-full max-w-md border-red-300">
+                <CardHeader>
+                  <CardTitle className="text-red-700">Warning</CardTitle>
+                  <CardDescription className="text-red-700">
+                    Deleting selected lectures cannot be reverted.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {actionError ? <p className="text-sm text-red-700">{actionError}</p> : null}
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowDeleteWarning(false)}
+                      disabled={deleting}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={confirmDeleteSelected}
+                      disabled={deleting}
+                    >
+                      {deleting ? 'Deleting...' : 'Confirm Delete'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </main>
       </div>
     </div>

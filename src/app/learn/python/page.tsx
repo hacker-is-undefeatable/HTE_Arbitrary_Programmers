@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
-import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AppShell } from '@/components/layout/app-shell';
@@ -11,14 +10,11 @@ import { PYTHON_CHALLENGES } from '@/utils/quizData';
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
 export default function LearnPythonPage() {
-  const { user } = useAuth();
   const [selectedChallengeId, setSelectedChallengeId] = useState(PYTHON_CHALLENGES[0].id);
   const [code, setCode] = useState(PYTHON_CHALLENGES[0].initial_code);
   const [output, setOutput] = useState('');
   const [showHints, setShowHints] = useState(false);
   const [executing, setExecuting] = useState(false);
-  const [showExplanation, setShowExplanation] = useState(false);
-  const [explanation, setExplanation] = useState<any>(null);
 
   const currentChallenge = PYTHON_CHALLENGES.find((c) => c.id === selectedChallengeId);
 
@@ -29,7 +25,6 @@ export default function LearnPythonPage() {
       setCode(challenge.initial_code);
       setOutput('');
       setShowHints(false);
-      setShowExplanation(false);
     }
   };
 
@@ -45,18 +40,6 @@ export default function LearnPythonPage() {
           setOutput('All tests passed!\nadd(2, 3) = 5\nadd(-1, 1) = 0\nadd(0, 0) = 0');
         } else {
           setOutput('Tests failed\nHint: Check your return statement');
-          setShowExplanation(true);
-          const res = await fetch('/api/ai-explanation/python-debug', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              code,
-              error: 'Function does not return the sum of a and b',
-              explanationStyle: 'step-by-step',
-            }),
-          });
-          const data = await res.json();
-          setExplanation(data);
         }
       } else {
         setOutput('Please implement the function');
@@ -66,26 +49,6 @@ export default function LearnPythonPage() {
     }
 
     setExecuting(false);
-  };
-
-  const saveSubmission = async () => {
-    if (!user?.id || !currentChallenge) return;
-
-    try {
-      await fetch('/api/coding-submissions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          challengeId: currentChallenge.id,
-          code,
-          isCorrect: output.includes('All tests passed'),
-          errorMessage: output.includes('Tests failed') ? output : null,
-        }),
-      });
-    } catch (error) {
-      console.error('Error saving submission:', error);
-    }
   };
 
   if (!currentChallenge) {
@@ -206,36 +169,6 @@ export default function LearnPythonPage() {
               </Card>
             )}
 
-            {/* AI Explanation */}
-            {showExplanation && explanation && (
-              <Card className="bg-primary/5 border-primary/20">
-                <CardHeader>
-                  <CardTitle className="text-lg">Debugging Help</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  <div>
-                    <p className="font-semibold mb-1">Explanation:</p>
-                    <p>{explanation.explanation}</p>
-                  </div>
-                  <div>
-                    <p className="font-semibold mb-1">Hint:</p>
-                    <p>{explanation.hint}</p>
-                  </div>
-                  <div>
-                    <p className="font-semibold mb-1">Suggested Improvement:</p>
-                    <pre className="bg-white p-2 rounded text-xs overflow-auto">
-                      {explanation.suggested_improvement}
-                    </pre>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {output && output.includes('passed') && (
-              <Button onClick={saveSubmission} className="w-full">
-                Save & Continue
-              </Button>
-            )}
           </div>
         </div>
       </div>

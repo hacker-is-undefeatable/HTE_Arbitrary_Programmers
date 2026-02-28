@@ -12,6 +12,7 @@
   "dependencies": {
     "@monaco-editor/react": "^4.5.0",
     "@radix-ui/react-dialog": "^1.0.0",
+    "@rive-app/react-canvas": "^4.27.0",
     "@supabase/supabase-js": "^2.38.0",
     "@types/pdf-parse": "^1.1.5",
     "assemblyai": "^4.23.1",

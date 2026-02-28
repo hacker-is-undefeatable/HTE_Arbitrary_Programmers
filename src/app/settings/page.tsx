@@ -244,10 +244,10 @@ export default function SettingsPage() {
           {/* About */}
           <Card>
             <CardHeader>
-              <CardTitle>About DualPath AI</CardTitle>
+              <CardTitle>About ScholorFly</CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              <p>DualPath AI v0.1.0 - Hackathon Edition</p>
+              <p>ScholorFly v0.1.0 - Hackathon Edition</p>
               <p className="mt-2">
                 An AI-powered personalized learning platform designed to help students master any subject through adaptive learning, intelligent feedback, and spaced repetition.
               </p>

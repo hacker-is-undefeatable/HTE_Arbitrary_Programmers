@@ -1,4 +1,4 @@
--- DualPath AI Database Schema
+-- ScholorFly Database Schema
 -- This schema is designed for Supabase and uses PostgreSQL
 
 -- 1. PROFILES TABLE (extends Supabase auth.users)

@@ -1,4 +1,4 @@
-# DualPath AI - Hackathon Ready Learning Platform
+# ScholorFly - Hackathon Ready Learning Platform
 
 A full-stack AI-powered personalized learning platform that adapts to your learning level and style.
 
@@ -298,8 +298,8 @@ For a specific topic and subject
 
 ### Docker
 ```bash
-docker build -t dualpath-ai .
-docker run -p 3000:3000 dualpath-ai
+docker build -t scholorfly .
+docker run -p 3000:3000 scholorfly
 ```
 
 ## Sample Features Included

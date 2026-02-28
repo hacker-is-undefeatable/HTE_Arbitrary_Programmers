@@ -3,7 +3,7 @@ import './globals.css';
 import CompanionWidget from './api/companion/CompanionWidget';
 
 export const metadata: Metadata = {
-  title: 'DualPath AI',
+  title: 'ScholorFly',
   description: 'Personalized AI-powered learning platform',
   icons: {
     icon: '/favicon.svg',

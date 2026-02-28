@@ -1,4 +1,4 @@
-// Types for the DualPath AI application
+// Types for the ScholorFly application
 
 export type UserRole = 'high_school' | 'college';
 export type Subject = 'math' | 'python';

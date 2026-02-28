@@ -244,10 +244,10 @@ export default function SettingsPage() {
           {/* About */}
           <Card>
             <CardHeader>
-              <CardTitle>About ScholorFly</CardTitle>
+              <CardTitle>About ScholarFly</CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              <p>ScholorFly v0.1.0 - Hackathon Edition</p>
+              <p>ScholarFly v0.1.0 - Hackathon Edition</p>
               <p className="mt-2">
                 An AI-powered personalized learning platform designed to help students master any subject through adaptive learning, intelligent feedback, and spaced repetition.
               </p>

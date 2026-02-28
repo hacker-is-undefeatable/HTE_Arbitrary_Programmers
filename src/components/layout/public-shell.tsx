@@ -73,7 +73,7 @@ export function PublicShell({ title, subtitle, children, rightSlot }: PublicShel
             </Link>
 
             <div className="mt-3 rounded-lg border bg-background p-3">
-              <div className="text-sm font-medium">ScholorFly</div>
+              <div className="text-sm font-medium">ScholarFly</div>
               <div className="text-xs text-muted-foreground">AI-powered learning platform</div>
             </div>
           </div>
@@ -89,7 +89,7 @@ export function PublicShell({ title, subtitle, children, rightSlot }: PublicShel
               {rightSlot || (
                 <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
                   <Sparkles className="h-4 w-4" />
-                  <span>ScholorFly</span>
+                  <span>ScholarFly</span>
                 </div>
               )}
             </div>

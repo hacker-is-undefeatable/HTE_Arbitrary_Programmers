@@ -1,4 +1,4 @@
-// Types for the ScholorFly application
+// Types for the ScholarFly application
 
 export type UserRole = 'high_school' | 'college';
 export type Subject = 'math' | 'python';

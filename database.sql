@@ -1,4 +1,4 @@
--- ScholorFly Database Schema
+-- ScholarFly Database Schema
 -- This schema is designed for Supabase and uses PostgreSQL
 
 -- 1. PROFILES TABLE (extends Supabase auth.users)

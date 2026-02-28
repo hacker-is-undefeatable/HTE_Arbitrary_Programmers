@@ -84,7 +84,7 @@ const BoardingPass = ({
                 ✈
               </div>
               <div>
-                <h2 className="text-lg font-bold tracking-wide text-primary">SCHOLORFLY</h2>
+                <h2 className="text-lg font-bold tracking-wide text-primary">SCHOLARFLY</h2>
                 <p className="text-[10px] tracking-[0.3em] text-muted">AIRLINES</p>
               </div>
             </div>
@@ -270,7 +270,7 @@ const BoardingPass = ({
               ))}
             </div>
             <p className="mt-1.5 text-center text-[9px] tracking-[0.3em] text-muted-foreground">
-              {flightNo} · SCHOLORFLY AIRLINES · BOARDING PASS
+              {flightNo} · SCHOLARFLY AIRLINES · BOARDING PASS
             </p>
           </div>
 

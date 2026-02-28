@@ -1,4 +1,4 @@
-# ScholorFly - Hackathon Ready Learning Platform
+# ScholarFly - Hackathon Ready Learning Platform
 
 A full-stack AI-powered personalized learning platform that adapts to your learning level and style.
 
@@ -298,8 +298,8 @@ For a specific topic and subject
 
 ### Docker
 ```bash
-docker build -t scholorfly .
-docker run -p 3000:3000 scholorfly
+docker build -t scholarfly .
+docker run -p 3000:3000 scholarfly
 ```
 
 ## Sample Features Included

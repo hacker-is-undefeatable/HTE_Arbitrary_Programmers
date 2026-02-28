@@ -261,7 +261,7 @@ export default function DashboardPage() {
           <div className="rounded-xl border bg-card">
             <div className="flex items-center justify-between border-b px-4 py-3 sm:px-6">
               <h1 className="text-sm font-medium sm:text-base">Dashboards</h1>
-              <div className="text-sm text-muted-foreground">???</div>
+              <div className="text-sm text-muted-foreground">—</div>
             </div>
 
             <div className="space-y-4 p-4 sm:space-y-6 sm:p-6">

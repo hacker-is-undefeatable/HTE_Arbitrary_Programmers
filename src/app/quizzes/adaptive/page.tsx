@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppShell } from '@/components/layout/app-shell';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { MathText } from '@/components/math-text';
 
 type DifficultyLevel = 'L1' | 'L2' | 'L3' | 'L4' | 'L5';
 
@@ -60,8 +61,20 @@ const DIFFICULTY_LABELS: Record<DifficultyLevel, string> = {
 const MAX_ROUNDS = 5;
 const QUESTIONS_PER_ROUND = 5;
 
+/** localStorage key for question IDs used in past completed sessions (per subject). No database ? questions stay in code. */
+const USED_QUESTION_IDS_KEY = 'adaptiveQuizUsedQuestionIds';
+
+/** When a difficulty has fewer than 5 questions, pull from these levels to fill the round. */
+const DIFFICULTY_FALLBACKS: Record<DifficultyLevel, DifficultyLevel[]> = {
+  L1: ['L2'],
+  L2: ['L1', 'L3'],
+  L3: ['L2', 'L4'],
+  L4: ['L3', 'L5'],
+  L5: ['L4'],
+};
+
 const MATH_QUESTIONS: MCQ[] = [
-  // L1 – Recall
+  // L1 ? Recall
   {
     id: 'math-l1-1',
     subject: 'math',
@@ -76,7 +89,7 @@ const MATH_QUESTIONS: MCQ[] = [
     },
     correctOption: 'B',
     misconception: 'Confusing addition with multiplication or miscounting by one.',
-    reinforcementTip: 'Pair numbers that make 10 first (7 + 3 + 2) to simplify mental addition.',
+    reinforcementTip: 'Pair numbers that make 10 first \\(7 + 3 + 2\\) to simplify mental addition.',
   },
   {
     id: 'math-l1-2',
@@ -92,7 +105,7 @@ const MATH_QUESTIONS: MCQ[] = [
     },
     correctOption: 'C',
     misconception: 'Mixing up how many parts are eaten vs. how many are left.',
-    reinforcementTip: 'Think “denominator = total pieces, numerator = pieces you have.”',
+    reinforcementTip: 'Think: denominator = total pieces, numerator = pieces you have.',
   },
   {
     id: 'math-l1-3',
@@ -111,7 +124,7 @@ const MATH_QUESTIONS: MCQ[] = [
     reinforcementTip: 'The coefficient is the number multiplying the variable.',
   },
 
-  // L2 – Comprehension
+  // L2 ? Comprehension
   {
     id: 'math-l2-1',
     subject: 'math',
@@ -126,7 +139,7 @@ const MATH_QUESTIONS: MCQ[] = [
     },
     correctOption: 'B',
     misconception: 'Treating (x - 3) as a constant or as the final answer.',
-    reinforcementTip: 'See (x - 3) as a “box” you first isolate, then solve for x inside it.',
+    reinforcementTip: 'See (x - 3) as a "box" you first isolate, then solve for x inside it.',
   },
   {
     id: 'math-l2-2',
@@ -141,7 +154,7 @@ const MATH_QUESTIONS: MCQ[] = [
       D: 'Its derivative is equal to zero on that interval',
     },
     correctOption: 'B',
-    misconception: 'Thinking “increasing” means “positive values” instead of “values going up.”',
+    misconception: 'Thinking "increasing" means "positive values" instead of "values going up."',
     reinforcementTip: 'Trace the graph from left to right; if you go uphill, the function increases.',
   },
   {
@@ -149,7 +162,7 @@ const MATH_QUESTIONS: MCQ[] = [
     subject: 'math',
     difficulty: 'L2',
     concept: 'limits',
-    question: 'Saying limₓ→2 f(x) = 5 means:',
+    question: 'Saying the limit of f(x) as x approaches 2 equals 5 means:',
     options: {
       A: 'f(2) must equal 5',
       B: 'As x gets closer to 2, f(x) gets closer to 5',
@@ -161,7 +174,7 @@ const MATH_QUESTIONS: MCQ[] = [
     reinforcementTip: 'Limits describe trend near a point, not necessarily the value at the point.',
   },
 
-  // L3 – Application
+  // L3 ? Application
   {
     id: 'math-l3-1',
     subject: 'math',
@@ -177,7 +190,7 @@ const MATH_QUESTIONS: MCQ[] = [
     },
     correctOption: 'C',
     misconception: 'Interpreting probability as a guarantee instead of a long-run frequency.',
-    reinforcementTip: 'Think of probability as “what happens in the long run,” not a short guarantee.',
+    reinforcementTip: 'Think of probability as "what happens in the long run," not a short guarantee.',
   },
   {
     id: 'math-l3-2',
@@ -188,8 +201,8 @@ const MATH_QUESTIONS: MCQ[] = [
     options: {
       A: '5 because 3 + 4 = 7 and 7 - 2 = 5',
       B: '7 because 3 + 4 = 7',
-      C: '5 because 3² + 4² = 5²',
-      D: '25 because 3² + 4² = 25',
+      C: '5 because \\(3^2 + 4^2 = 5^2\\)',
+      D: '25 because \\(3^2 + 4^2 = 25\\)',
     },
     correctOption: 'C',
     misconception: 'Adding lengths instead of using squares in the theorem.',
@@ -213,7 +226,7 @@ const MATH_QUESTIONS: MCQ[] = [
     reinforcementTip: 'Always compute average speed as total distance divided by total time.',
   },
 
-  // L4 – Analysis
+  // L4 ? Analysis
   {
     id: 'math-l4-1',
     subject: 'math',
@@ -230,7 +243,7 @@ const MATH_QUESTIONS: MCQ[] = [
     correctOption: 'B',
     misconception: 'Underestimating how quickly exponential functions grow.',
     reinforcementTip:
-      'Plot y = x and y = 2ˣ; exponential may start lower but quickly overtakes linear growth.',
+      'Plot \\(y = x\\) and \\(y = 2^x\\); exponential may start lower but quickly overtakes linear growth.',
   },
   {
     id: 'math-l4-2',
@@ -238,7 +251,7 @@ const MATH_QUESTIONS: MCQ[] = [
     difficulty: 'L4',
     concept: 'derivatives',
     question:
-      'If f′(x) is positive on (a, b) and negative on (b, c), what can you say about f at x = b?',
+      'If f\'(x) is positive on (a, b) and negative on (b, c), what can you say about f at x = b?',
     options: {
       A: 'f has a local minimum at x = b',
       B: 'f has a local maximum at x = b',
@@ -267,7 +280,7 @@ const MATH_QUESTIONS: MCQ[] = [
     reinforcementTip: 'Mean shows center; variance shows how tightly scores cluster around that center.',
   },
 
-  // L5 – Synthesis / Evaluation
+  // L5 ? Synthesis / Evaluation
   {
     id: 'math-l5-1',
     subject: 'math',
@@ -325,13 +338,13 @@ const MATH_QUESTIONS: MCQ[] = [
 ];
 
 const AI_QUESTIONS: MCQ[] = [
-  // L1 – Recall
+  // L1 ? Recall
   {
     id: 'ai-l1-1',
     subject: 'ai',
     difficulty: 'L1',
     concept: 'supervised learning',
-    question: 'In supervised learning, what is a “label”?',
+    question: 'In supervised learning, what is a "label"?',
     options: {
       A: 'The raw input data',
       B: 'The correct output the model should learn to predict',
@@ -347,7 +360,7 @@ const AI_QUESTIONS: MCQ[] = [
     subject: 'ai',
     difficulty: 'L1',
     concept: 'datasets',
-    question: 'What is a “training set” in machine learning?',
+    question: 'What is a "training set" in machine learning?',
     options: {
       A: 'Data reserved only for final evaluation',
       B: 'Data used to fit or learn the model parameters',
@@ -356,7 +369,7 @@ const AI_QUESTIONS: MCQ[] = [
     },
     correctOption: 'B',
     misconception: 'Mixing up training data with test or validation data.',
-    reinforcementTip: 'The model “studies” the training set; it is graded on the test set.',
+    reinforcementTip: 'The model "studies" the training set; it is graded on the test set.',
   },
   {
     id: 'ai-l1-3',
@@ -366,7 +379,7 @@ const AI_QUESTIONS: MCQ[] = [
     question: 'What does a loss function measure?',
     options: {
       A: 'How fast the code runs',
-      B: 'How wrong the model’s predictions are',
+      B: "How wrong the model's predictions are",
       C: 'How much data is stored',
       D: 'How many layers the model has',
     },
@@ -375,7 +388,7 @@ const AI_QUESTIONS: MCQ[] = [
     reinforcementTip: 'Lower loss means predictions are closer to the correct labels.',
   },
 
-  // L2 – Comprehension
+  // L2 ? Comprehension
   {
     id: 'ai-l2-1',
     subject: 'ai',
@@ -406,7 +419,7 @@ const AI_QUESTIONS: MCQ[] = [
     },
     correctOption: 'A',
     misconception: 'Thinking the difference is which algorithm is used rather than label availability.',
-    reinforcementTip: 'Ask: “Do we know the correct answers for each example?” If yes, it’s supervised.',
+    reinforcementTip: 'Ask: "Do we know the correct answers for each example?" If yes, it\'s supervised.',
   },
   {
     id: 'ai-l2-3',
@@ -425,7 +438,7 @@ const AI_QUESTIONS: MCQ[] = [
     reinforcementTip: 'Think of learning rate as the step size while walking downhill on the loss surface.',
   },
 
-  // L3 – Application
+  // L3 ? Application
   {
     id: 'ai-l3-1',
     subject: 'ai',
@@ -442,7 +455,7 @@ const AI_QUESTIONS: MCQ[] = [
     correctOption: 'B',
     misconception: 'Mixing up precision, recall, and accuracy.',
     reinforcementTip:
-      'Recall asks: “Of all true positives, how many did we catch?” High accuracy can hide low recall.',
+      'Recall asks: "Of all true positives, how many did we catch?" High accuracy can hide low recall.',
   },
   {
     id: 'ai-l3-2',
@@ -480,7 +493,7 @@ const AI_QUESTIONS: MCQ[] = [
       'Regularization penalizes large weights, nudging them smaller and reducing overfitting.',
   },
 
-  // L4 – Analysis
+  // L4 ? Analysis
   {
     id: 'ai-l4-1',
     subject: 'ai',
@@ -536,7 +549,7 @@ const AI_QUESTIONS: MCQ[] = [
       'Unusually powerful features may hide leakage, proxies for sensitive attributes, or data errors.',
   },
 
-  // L5 – Synthesis / Evaluation
+  // L5 ? Synthesis / Evaluation
   {
     id: 'ai-l5-1',
     subject: 'ai',
@@ -551,9 +564,9 @@ const AI_QUESTIONS: MCQ[] = [
       D: 'Any model, latency does not depend on complexity',
     },
     correctOption: 'B',
-    misconception: 'Equating “best” only with most complex or most accurate on large servers.',
+    misconception: 'Equating "best" only with most complex or most accurate on large servers.',
     reinforcementTip:
-      'On constrained hardware, simpler models often give the best accuracy–latency tradeoff.',
+      'On constrained hardware, simpler models often give the best accuracy?latency tradeoff.',
   },
   {
     id: 'ai-l5-2',
@@ -589,21 +602,97 @@ const AI_QUESTIONS: MCQ[] = [
     correctOption: 'C',
     misconception: 'Focusing only on global metrics instead of subgroup performance.',
     reinforcementTip:
-      'Fairness work starts with measurement: check each group’s error rates, data quality, and representation.',
+      "Fairness work starts with measurement: check each group's error rates, data quality, and representation.",
   },
 ];
 
-function getQuestionsForRound(subject: QuizSubject, difficulty: DifficultyLevel): MCQ[] {
-  const pool = (subject === 'math' ? MATH_QUESTIONS : AI_QUESTIONS).filter(
-    (q) => q.difficulty === difficulty
+/**
+ * Returns a new set of questions for a round. Excludes any question IDs in excludedIds
+ * (from previous sessions + current session) so questions never repeat across sessions.
+ * Questions are only in code (MATH_QUESTIONS / AI_QUESTIONS); nothing is stored in a database.
+ */
+function getQuestionsForRound(
+  subject: QuizSubject,
+  difficulty: DifficultyLevel,
+  excludedIds: Set<string>
+): MCQ[] {
+  const allQuestions = subject === 'math' ? MATH_QUESTIONS : AI_QUESTIONS;
+
+  // Build pool for this difficulty (and fallbacks), excluding already-used questions
+  let pool = allQuestions.filter(
+    (q) => q.difficulty === difficulty && !excludedIds.has(q.id)
   );
 
-  if (pool.length <= QUESTIONS_PER_ROUND) {
-    return [...pool];
+  const fallbacks = DIFFICULTY_FALLBACKS[difficulty];
+  for (const fallbackLevel of fallbacks) {
+    if (pool.length >= QUESTIONS_PER_ROUND) break;
+    const extra = allQuestions.filter(
+      (q) => q.difficulty === fallbackLevel && !excludedIds.has(q.id)
+    );
+    const existingIds = new Set(pool.map((q) => q.id));
+    for (const q of extra) {
+      if (pool.length >= QUESTIONS_PER_ROUND) break;
+      if (!existingIds.has(q.id)) {
+        pool.push(q);
+        existingIds.add(q.id);
+      }
+    }
+  }
+
+  // If we still don't have enough (e.g. many previous sessions), allow repeats for this round only
+  if (pool.length < QUESTIONS_PER_ROUND) {
+    pool = allQuestions.filter((q) => q.difficulty === difficulty);
+    for (const fallbackLevel of fallbacks) {
+      if (pool.length >= QUESTIONS_PER_ROUND) break;
+      const extra = allQuestions.filter((q) => q.difficulty === fallbackLevel);
+      const existingIds = new Set(pool.map((q) => q.id));
+      for (const q of extra) {
+        if (pool.length >= QUESTIONS_PER_ROUND) break;
+        if (!existingIds.has(q.id)) {
+          pool.push(q);
+          existingIds.add(q.id);
+        }
+      }
+    }
   }
 
   const shuffled = [...pool].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, QUESTIONS_PER_ROUND);
+}
+
+/** Load used question IDs from localStorage for a subject (no database). */
+function loadUsedQuestionIds(subject: QuizSubject): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const raw = window.localStorage.getItem(USED_QUESTION_IDS_KEY);
+    if (!raw) return new Set();
+    const data = JSON.parse(raw) as Record<string, string[]>;
+    const list = data[subject] ?? [];
+    return new Set(list);
+  } catch {
+    return new Set();
+  }
+}
+
+/** Persist used question IDs to localStorage after a session completes (no database). */
+function saveUsedQuestionIds(subject: QuizSubject, newIds: string[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = window.localStorage.getItem(USED_QUESTION_IDS_KEY);
+    const data: Record<string, string[]> = raw ? JSON.parse(raw) : {};
+    const existing = data[subject] ?? [];
+    const totalForSubject =
+      subject === 'math' ? MATH_QUESTIONS.length : AI_QUESTIONS.length;
+    const combined = [...existing, ...newIds];
+    // Keep at most totalForSubject so we can cycle and avoid unbounded growth
+    data[subject] =
+      combined.length <= totalForSubject
+        ? combined
+        : combined.slice(-totalForSubject);
+    window.localStorage.setItem(USED_QUESTION_IDS_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.error('Failed to save used question IDs to localStorage', e);
+  }
 }
 
 function getNextDifficulty(current: DifficultyLevel, correctCount: number): {
@@ -722,20 +811,42 @@ function buildRoundSummary(
 function AdaptiveQuiz({ subject }: { subject: QuizSubject }) {
   const [round, setRound] = useState(1);
   const [difficulty, setDifficulty] = useState<DifficultyLevel>('L2');
-  const [currentQuestions, setCurrentQuestions] = useState<MCQ[]>(
-    getQuestionsForRound(subject, 'L2')
-  );
+  const [currentQuestions, setCurrentQuestions] = useState<MCQ[]>([]);
   const [answers, setAnswers] = useState<Record<string, OptionKey | null>>({});
   const [currentSummary, setCurrentSummary] = useState<RoundSummary | null>(null);
-  const [allSummaries, setAllSummaries] = useState<RoundSummary[]>([]);
+  const [_allSummaries, setAllSummaries] = useState<RoundSummary[]>([]);
   const [roundSubmitted, setRoundSubmitted] = useState(false);
+  /** IDs used in previous completed sessions (from localStorage). No database. */
+  const [usedIdsFromPreviousSessions, setUsedIdsFromPreviousSessions] = useState<string[]>([]);
+  /** IDs used in the current session so far (this round + previous rounds). */
+  const [usedIdsInCurrentSession, setUsedIdsInCurrentSession] = useState<string[]>([]);
+  const [sessionReady, setSessionReady] = useState(false);
+  const hasSavedSessionRef = useRef(false);
 
   const subjectLabel = subject === 'math' ? 'Math' : 'AI / Machine Learning';
 
   const currentDifficultyLabel = useMemo(
-    () => `${difficulty} – ${DIFFICULTY_LABELS[difficulty]}`,
+    () => `${difficulty} ? ${DIFFICULTY_LABELS[difficulty]}`,
     [difficulty]
   );
+
+  // Load used question IDs from localStorage and init first round. No database ? questions stay in code.
+  useEffect(() => {
+    const usedFromStorage = loadUsedQuestionIds(subject);
+    setUsedIdsFromPreviousSessions(Array.from(usedFromStorage));
+    const excluded = new Set(usedFromStorage);
+    const initial = getQuestionsForRound(subject, 'L2', excluded);
+    setRound(1);
+    setDifficulty('L2');
+    setAnswers({});
+    setCurrentSummary(null);
+    setAllSummaries([]);
+    setRoundSubmitted(false);
+    setCurrentQuestions(initial);
+    setUsedIdsInCurrentSession(initial.map((q) => q.id));
+    setSessionReady(true);
+    hasSavedSessionRef.current = false;
+  }, [subject]);
 
   const handleOptionChange = (questionId: string, option: OptionKey) => {
     if (roundSubmitted) return;
@@ -755,16 +866,35 @@ function AdaptiveQuiz({ subject }: { subject: QuizSubject }) {
     if (round >= MAX_ROUNDS) return;
 
     const nextDifficulty = currentSummary.nextDifficulty;
+    const excluded = new Set([
+      ...usedIdsFromPreviousSessions,
+      ...usedIdsInCurrentSession,
+    ]);
+    const nextQuestions = getQuestionsForRound(subject, nextDifficulty, excluded);
 
     setRound((r) => r + 1);
     setDifficulty(nextDifficulty);
-    setCurrentQuestions(getQuestionsForRound(subject, nextDifficulty));
+    setCurrentQuestions(nextQuestions);
+    setUsedIdsInCurrentSession((prev) => [...prev, ...nextQuestions.map((q) => q.id)]);
     setAnswers({});
     setCurrentSummary(null);
     setRoundSubmitted(false);
   };
 
   const isSessionComplete = round > MAX_ROUNDS || (round === MAX_ROUNDS && roundSubmitted);
+
+  // When session completes, persist used question IDs to localStorage once so next session gets a new set. No database.
+  useEffect(() => {
+    if (
+      !isSessionComplete ||
+      !sessionReady ||
+      usedIdsInCurrentSession.length === 0 ||
+      hasSavedSessionRef.current
+    )
+      return;
+    hasSavedSessionRef.current = true;
+    saveUsedQuestionIds(subject, usedIdsInCurrentSession);
+  }, [isSessionComplete, subject, sessionReady, usedIdsInCurrentSession]);
 
   return (
     <div className="space-y-6">
@@ -777,11 +907,18 @@ function AdaptiveQuiz({ subject }: { subject: QuizSubject }) {
           <p className="text-sm text-muted-foreground">Difficulty tier: {currentDifficultyLabel}</p>
         </div>
         <div className="text-sm text-muted-foreground">
-          5 questions per round • Adaptive difficulty based on your performance
+          5 questions per round ? Adaptive difficulty based on your performance
         </div>
       </div>
 
-      {!isSessionComplete && (
+      {!sessionReady && (
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            Loading questions?
+          </CardContent>
+        </Card>
+      )}
+      {sessionReady && !isSessionComplete && (
         <Card>
           <CardHeader>
             <CardTitle>Round {round} Questions</CardTitle>
@@ -798,7 +935,7 @@ function AdaptiveQuiz({ subject }: { subject: QuizSubject }) {
                     <span className="mr-2 font-semibold">
                       Q{index + 1}.
                     </span>
-                    {q.question}
+                    <MathText>{q.question}</MathText>
                   </p>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {(Object.keys(q.options) as OptionKey[]).map((key) => (
@@ -813,7 +950,7 @@ function AdaptiveQuiz({ subject }: { subject: QuizSubject }) {
                         }`}
                       >
                         <span className="mt-0.5 font-semibold">{key})</span>
-                        <span>{q.options[key]}</span>
+                        <MathText>{q.options[key]}</MathText>
                       </button>
                     ))}
                   </div>
@@ -856,29 +993,33 @@ function AdaptiveQuiz({ subject }: { subject: QuizSubject }) {
                   </p>
                   <p className="mb-1">
                     <span className="font-semibold">Correct Answer:</span>{' '}
-                    {r.correctOption}) {r.correctExplanation}
+                    {r.correctOption}) <MathText>{r.correctExplanation}</MathText>
                   </p>
                   <p className="mb-1">
                     <span className="font-semibold">Student&apos;s Answer:</span>{' '}
-                    {r.studentOption
-                      ? `${r.studentOption}) ${
-                          currentQuestions.find((q) => q.id === r.questionId)?.options[
+                    {r.studentOption ? (
+                      <>
+                        {r.studentOption}){' '}
+                        <MathText>
+                          {currentQuestions.find((q) => q.id === r.questionId)?.options[
                             r.studentOption
-                          ]
-                        }`
-                      : 'No answer selected'}{' '}
-                    —{' '}
+                          ] ?? ''}
+                        </MathText>
+                      </>
+                    ) : (
+                      'No answer selected'
+                    )}{' ? '}
                     <span className={r.isCorrect ? 'text-green-700' : 'text-red-700'}>
                       {r.isCorrect ? 'Correct' : 'Incorrect'}
                     </span>
                   </p>
                   {!r.isCorrect && r.misconception && (
                     <p className="mb-1">
-                      <span className="font-semibold">Misconception Detected:</span> {r.misconception}
+                      <span className="font-semibold">Misconception Detected:</span> <MathText>{r.misconception}</MathText>
                     </p>
                   )}
                   <p>
-                    <span className="font-semibold">Reinforcement Tip:</span> {r.reinforcementTip}
+                    <span className="font-semibold">Reinforcement Tip:</span> <MathText>{r.reinforcementTip}</MathText>
                   </p>
                 </div>
               ))}
@@ -898,11 +1039,11 @@ function AdaptiveQuiz({ subject }: { subject: QuizSubject }) {
               </p>
               <p>
                 <span className="font-semibold">Weakest Concept:</span>{' '}
-                {currentSummary.weakestConcept ?? '—'}
+                {currentSummary.weakestConcept ?? '?'}
               </p>
               <p>
                 <span className="font-semibold">Strongest Concept:</span>{' '}
-                {currentSummary.strongestConcept ?? '—'}
+                {currentSummary.strongestConcept ?? '?'}
               </p>
               <p>
                 <span className="font-semibold">Overall Mastery Signal:</span>{' '}

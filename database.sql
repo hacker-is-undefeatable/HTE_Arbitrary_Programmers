@@ -300,8 +300,20 @@ create table if not exists public.flight_tickets (
   user_id uuid references public.profiles(id) on delete cascade not null,
   title text not null,
   checkpoints jsonb not null default '[]'::jsonb,
+  completed boolean not null default false,
+  completed_at timestamp with time zone,
+  nft_badge_tx_hash text,
+  nft_badge_token_id text,
+  nft_badge_token_uri text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+alter table public.flight_tickets
+  add column if not exists completed boolean not null default false,
+  add column if not exists completed_at timestamp with time zone,
+  add column if not exists nft_badge_tx_hash text,
+  add column if not exists nft_badge_token_id text,
+  add column if not exists nft_badge_token_uri text;
 
 create index if not exists idx_flight_tickets_session_id on public.flight_tickets(session_id);
 create index if not exists idx_flight_tickets_user_id on public.flight_tickets(user_id);
@@ -316,6 +328,10 @@ create policy "Users can view own flight tickets"
 create policy "Users can insert own flight tickets"
   on public.flight_tickets for insert
   with check ( auth.uid() = user_id );
+
+create policy "Users can update own flight tickets"
+  on public.flight_tickets for update
+  using ( auth.uid() = user_id );
 
 -- 11. REVISION_TIME_LOGS TABLE
 create table if not exists public.revision_time_logs (

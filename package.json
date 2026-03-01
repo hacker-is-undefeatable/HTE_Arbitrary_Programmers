@@ -18,6 +18,7 @@
     "assemblyai": "^4.23.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
+    "ethers": "^6.16.0",
     "framer-motion": "^12.34.3",
     "katex": "^0.16.33",
     "lucide-react": "^0.263.0",

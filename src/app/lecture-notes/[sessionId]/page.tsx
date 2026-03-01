@@ -27,6 +27,11 @@ type FlightTicketItem = {
   id: string;
   title: string;
   checkpoints: Checkpoint[];
+  completed?: boolean;
+  completed_at?: string | null;
+  nft_badge_tx_hash?: string | null;
+  nft_badge_token_id?: string | null;
+  nft_badge_token_uri?: string | null;
   created_at: string;
 };
 
@@ -114,6 +119,32 @@ function getOptionDisplay(option: string, optionIndex: number) {
   };
 }
 
+type NftMetadata = {
+  name?: string;
+  description?: string;
+  image?: string;
+};
+
+function parseNftMetadataFromTokenUri(tokenUri?: string | null): NftMetadata | null {
+  if (!tokenUri || typeof tokenUri !== 'string') return null;
+
+  try {
+    if (tokenUri.startsWith('data:application/json;utf8,')) {
+      const encoded = tokenUri.replace('data:application/json;utf8,', '');
+      return JSON.parse(decodeURIComponent(encoded));
+    }
+
+    if (tokenUri.startsWith('data:application/json;base64,')) {
+      const encoded = tokenUri.replace('data:application/json;base64,', '');
+      return JSON.parse(atob(encoded));
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 function inferLectureQuizSubject(title: string): 'math' | 'python' {
   const normalized = title.toLowerCase();
   const mathKeywords = ['math', 'algebra', 'geometry', 'calculus', 'trigonometry', 'statistics'];
@@ -186,6 +217,8 @@ export default function LectureSessionDetailPage() {
   const [pastQuizAttempts, setPastQuizAttempts] = useState<QuizAttemptSummary[]>([]);
   const [selectedQuizAttemptId, setSelectedQuizAttemptId] = useState<string | null>(null);
   const [loadingPastQuizAttempts, setLoadingPastQuizAttempts] = useState(false);
+  const [completingTicketId, setCompletingTicketId] = useState<string | null>(null);
+  const [ticketActionError, setTicketActionError] = useState('');
   const lastScrollYRef = useRef(0);
 
   const sectionTabs = [
@@ -476,6 +509,65 @@ export default function LectureSessionDetailPage() {
     return new Date(session.created_at).toLocaleString();
   }, [session?.created_at]);
 
+  const handleCompleteTicket = async (ticketId: string) => {
+    if (!user?.id || !session) return;
+
+    setTicketActionError('');
+    setCompletingTicketId(ticketId);
+
+    try {
+      const walletAddress =
+        typeof window !== 'undefined' ? localStorage.getItem('scholarfly_wallet_address') || '' : '';
+
+      if (!walletAddress) {
+        throw new Error('Connect your MetaMask wallet on the Badges page before completing tickets.');
+      }
+
+      const response = await fetch('/api/flight-tickets/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          ticketId,
+          walletAddress,
+          lectureTitle: session.lecture_title,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to complete ticket.');
+      }
+
+      setSession((prev) => {
+        if (!prev) return prev;
+
+        return {
+          ...prev,
+          flight_tickets: (prev.flight_tickets || []).map((ticket) =>
+            ticket.id === ticketId
+              ? {
+                  ...ticket,
+                  completed: true,
+                  completed_at: new Date().toISOString(),
+                  nft_badge_tx_hash: data?.txHash || ticket.nft_badge_tx_hash || null,
+                  nft_badge_token_id: data?.tokenId || ticket.nft_badge_token_id || null,
+                  nft_badge_token_uri: data?.tokenUri || ticket.nft_badge_token_uri || null,
+                }
+              : ticket
+          ),
+        };
+      });
+    } catch (ticketError) {
+      setTicketActionError(
+        ticketError instanceof Error ? ticketError.message : 'Failed to complete ticket.'
+      );
+    } finally {
+      setCompletingTicketId(null);
+    }
+  };
+
   return (
     <AppShell
       title={session?.lecture_title || 'Learning'}
@@ -590,15 +682,87 @@ export default function LectureSessionDetailPage() {
                   <CardDescription>Saved route checkpoints from your generated ticket</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {ticketActionError ? <p className="text-sm text-red-600">{ticketActionError}</p> : null}
                   {session.flight_tickets?.length > 0 ? (
-                    session.flight_tickets.map((ticket) => (
+                    session.flight_tickets.map((ticket) => {
+                      const nftMetadata = parseNftMetadataFromTokenUri(ticket.nft_badge_token_uri);
+
+                      return (
                       <div key={ticket.id} className="rounded-md border bg-muted/20 p-4">
                         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                          <p className="font-medium">{ticket.title || 'Flight Ticket'}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(ticket.created_at).toLocaleString()}
-                          </p>
+                          <div>
+                            <p className="font-medium">{ticket.title || 'Flight Ticket'}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(ticket.created_at).toLocaleString()}
+                            </p>
+                          </div>
+
+                          <div className="flex flex-col items-end gap-2">
+                            <div
+                              className={`rounded-md border px-2 py-1 text-xs font-semibold ${
+                                ticket.completed
+                                  ? 'border-green-200 bg-green-100 text-green-700'
+                                  : 'border-yellow-200 bg-yellow-100 text-yellow-700'
+                              }`}
+                            >
+                              {ticket.completed ? 'Completed' : 'In Progress'}
+                            </div>
+
+                            {ticket.completed ? (
+                              ticket.nft_badge_tx_hash ? (
+                                <a
+                                  href={`https://sepolia.etherscan.io/tx/${ticket.nft_badge_tx_hash}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-xs text-muted-foreground underline"
+                                >
+                                  View NFT Tx
+                                </a>
+                              ) : null
+                            ) : (
+                              <Button
+                                size="sm"
+                                onClick={() => handleCompleteTicket(ticket.id)}
+                                disabled={completingTicketId === ticket.id}
+                              >
+                                {completingTicketId === ticket.id ? 'Completing...' : 'Complete'}
+                              </Button>
+                            )}
+                          </div>
                         </div>
+
+                        {ticket.completed ? (
+                          <div className="mb-3 rounded-md border bg-background p-3">
+                            <p className="text-xs font-medium text-muted-foreground">Minted NFT Badge</p>
+                            <div className="mt-2 flex items-start gap-3">
+                              {nftMetadata?.image ? (
+                                <img
+                                  src={nftMetadata.image}
+                                  alt={nftMetadata?.name || 'NFT badge preview'}
+                                  className="h-20 w-20 rounded-md border object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-20 w-20 items-center justify-center rounded-md border bg-muted text-xs text-muted-foreground">
+                                  No image
+                                </div>
+                              )}
+
+                              <div className="space-y-1 text-xs">
+                                <p className="font-semibold text-foreground">
+                                  {nftMetadata?.name || 'ScholarFly Completion Badge'}
+                                </p>
+                                {ticket.nft_badge_token_id ? (
+                                  <p className="text-muted-foreground">Token ID: {ticket.nft_badge_token_id}</p>
+                                ) : null}
+                                {ticket.completed_at ? (
+                                  <p className="text-muted-foreground">
+                                    Completed: {new Date(ticket.completed_at).toLocaleString()}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
 
                         {ticket.checkpoints?.length > 0 ? (
                           <div className="space-y-2">
@@ -629,7 +793,8 @@ export default function LectureSessionDetailPage() {
                           <p className="text-sm text-muted-foreground">No checkpoints saved for this ticket.</p>
                         )}
                       </div>
-                    ))
+                    );
+                    })
                   ) : (
                     <p className="text-sm text-muted-foreground">No saved flight tickets for this lecture yet.</p>
                   )}

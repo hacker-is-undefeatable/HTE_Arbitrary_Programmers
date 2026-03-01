@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -8,6 +8,7 @@ import {
   Settings,
   HelpCircle,
   Plus,
+  Award,
   UserCircle,
   LogOut,
 } from 'lucide-react';
@@ -24,12 +25,56 @@ interface AppShellProps {
 
 export function AppShell({ title, subtitle, children, rightSlot, outsideTopSlot }: AppShellProps) {
   const router = useRouter();
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
+  const [walletAddress, setWalletAddress] = useState('');
+  const [sftBalance, setSftBalance] = useState<string | null>(null);
+  const [loadingSftBalance, setLoadingSftBalance] = useState(false);
+  const [sftError, setSftError] = useState('');
 
   const handleLogout = async () => {
     await signOut();
     router.push('/login');
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const storedWallet = localStorage.getItem('scholarfly_wallet_address') || '';
+    setWalletAddress(storedWallet);
+  }, [user?.id]);
+
+  useEffect(() => {
+    const fetchSftBalance = async () => {
+      if (!walletAddress) {
+        setSftBalance(null);
+        setSftError('');
+        return;
+      }
+
+      setLoadingSftBalance(true);
+      setSftError('');
+
+      try {
+        const response = await fetch(
+          `/api/token-balance?walletAddress=${encodeURIComponent(walletAddress)}`
+        );
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data?.error || 'Failed to load SFT balance.');
+        }
+
+        const balance = Number.parseFloat(String(data?.balanceFormatted || '0'));
+        setSftBalance(Number.isFinite(balance) ? balance.toFixed(4) : String(data?.balanceFormatted || '0'));
+      } catch (error) {
+        setSftBalance(null);
+        setSftError(error instanceof Error ? error.message : 'Failed to load SFT balance.');
+      } finally {
+        setLoadingSftBalance(false);
+      }
+    };
+
+    fetchSftBalance();
+  }, [walletAddress]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -48,6 +93,29 @@ export function AppShell({ title, subtitle, children, rightSlot, outsideTopSlot 
               Board your Flight
             </Link>
           </Button>
+
+          <Link
+            href="/badges"
+            className="mt-3 flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Award className="h-4 w-4" />
+            <span>Badges</span>
+          </Link>
+
+          <div className="mt-3 rounded-lg border bg-background p-3">
+            <div className="text-xs text-muted-foreground">SFT Balance</div>
+            <div className="mt-1 text-lg font-semibold">
+              {loadingSftBalance ? 'Loading...' : sftBalance !== null ? `${sftBalance} SFT` : '0.0000 SFT'}
+            </div>
+            {walletAddress ? (
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+              </div>
+            ) : (
+              <div className="mt-1 text-[11px] text-muted-foreground">Connect wallet on Badges page</div>
+            )}
+            {sftError ? <div className="mt-1 text-[11px] text-red-600">{sftError}</div> : null}
+          </div>
 
           <div className="mt-auto space-y-1">
             <Link

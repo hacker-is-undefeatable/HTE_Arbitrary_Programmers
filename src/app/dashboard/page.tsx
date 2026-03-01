@@ -15,6 +15,7 @@ import {
   LogOut,
   Plus,
   Plane,
+  Award,
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -29,6 +30,10 @@ export default function DashboardPage() {
   const [deleting, setDeleting] = useState(false);
   const [actionError, setActionError] = useState('');
   const [revisionRange, setRevisionRange] = useState<'7d' | '30d' | '1y'>('7d');
+  const [walletAddress, setWalletAddress] = useState('');
+  const [sftBalance, setSftBalance] = useState<string | null>(null);
+  const [loadingSftBalance, setLoadingSftBalance] = useState(false);
+  const [sftError, setSftError] = useState('');
 
   const revisionChart = useMemo(() => {
     const days = revisionRange === '30d' ? 30 : revisionRange === '1y' ? 365 : 7;
@@ -112,6 +117,9 @@ export default function DashboardPage() {
       .slice(0, 3)
       .map((session) => {
         const createdAt = new Date(session.created_at);
+        const flightTickets = Array.isArray(session.flight_tickets) ? session.flight_tickets : [];
+        const isCompleted =
+          flightTickets.length > 0 && flightTickets.every((ticket: any) => Boolean(ticket.completed));
 
         return {
           sessionId: session.id,
@@ -128,6 +136,7 @@ export default function DashboardPage() {
             day: '2-digit',
             month: 'short',
           }),
+          isCompleted,
         };
       });
   }, [lectureSessions]);
@@ -220,6 +229,45 @@ export default function DashboardPage() {
   }, [user?.id]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const storedWallet = localStorage.getItem('scholarfly_wallet_address') || '';
+    setWalletAddress(storedWallet);
+  }, []);
+
+  useEffect(() => {
+    const fetchSftBalance = async () => {
+      if (!walletAddress) {
+        setSftBalance(null);
+        setSftError('');
+        return;
+      }
+
+      setLoadingSftBalance(true);
+      setSftError('');
+      try {
+        const response = await fetch(
+          `/api/token-balance?walletAddress=${encodeURIComponent(walletAddress)}`
+        );
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data?.error || 'Failed to load SFT balance.');
+        }
+
+        const balance = Number.parseFloat(String(data?.balanceFormatted || '0'));
+        setSftBalance(Number.isFinite(balance) ? balance.toFixed(4) : String(data?.balanceFormatted || '0'));
+      } catch (error) {
+        setSftBalance(null);
+        setSftError(error instanceof Error ? error.message : 'Failed to load SFT balance.');
+      } finally {
+        setLoadingSftBalance(false);
+      }
+    };
+
+    fetchSftBalance();
+  }, [walletAddress]);
+
+  useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
     }
@@ -282,6 +330,29 @@ export default function DashboardPage() {
               Board your Flight
             </Link>
           </Button>
+
+          <Link
+            href="/badges"
+            className="mt-3 flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Award className="h-4 w-4" />
+            <span>Badges</span>
+          </Link>
+
+          <div className="mt-3 rounded-lg border bg-background p-3">
+            <div className="text-xs text-muted-foreground">SFT Balance</div>
+            <div className="mt-1 text-lg font-semibold">
+              {loadingSftBalance ? 'Loading...' : sftBalance !== null ? `${sftBalance} SFT` : '0.0000 SFT'}
+            </div>
+            {walletAddress ? (
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+              </div>
+            ) : (
+              <div className="mt-1 text-[11px] text-muted-foreground">Connect wallet on Badges page</div>
+            )}
+            {sftError ? <div className="mt-1 text-[11px] text-red-600">{sftError}</div> : null}
+          </div>
 
           <div className="mt-auto space-y-1">
             <Link href="/profile" className="block">
@@ -355,6 +426,15 @@ export default function DashboardPage() {
                               <CardDescription className="line-clamp-1 text-lg font-semibold text-foreground">
                                 {lecture.label}
                               </CardDescription>
+                            </div>
+                            <div
+                              className={`mt-2 inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${
+                                lecture.isCompleted
+                                  ? 'border-green-200 bg-green-100 text-green-700'
+                                  : 'border-yellow-200 bg-yellow-100 text-yellow-700'
+                              }`}
+                            >
+                              {lecture.isCompleted ? 'Completed' : 'In Progress'}
                             </div>
                             <CardTitle className="mt-2 text-base font-medium tracking-normal text-muted-foreground">
                               {lecture.value}
@@ -476,12 +556,15 @@ export default function DashboardPage() {
                         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                         .map((session) => {
                           const createdAt = new Date(session.created_at);
+                          const flightTickets = Array.isArray(session.flight_tickets)
+                            ? session.flight_tickets
+                            : [];
+                          const isCompleted =
+                            flightTickets.length > 0 &&
+                            flightTickets.every((ticket: any) => Boolean(ticket.completed));
 
-                          return (
-                            <div
-                              key={session.id}
-                              className="group relative overflow-hidden rounded-xl border border-primary/20 bg-muted/20 shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
-                            >
+                          const ticketCard = (
+                            <div className="group relative overflow-hidden rounded-xl border border-primary/20 bg-muted/20 shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
                               {batchDeleteMode ? (
                                 <label className="absolute right-3 top-3 z-10 inline-flex items-center rounded-md bg-background/80 p-1">
                                   <input
@@ -505,6 +588,15 @@ export default function DashboardPage() {
                                     <p className="line-clamp-1 text-lg font-semibold text-foreground">
                                       {session.lecture_title || 'Untitled Lecture'}
                                     </p>
+                                  </div>
+                                  <div
+                                    className={`mt-2 inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${
+                                      isCompleted
+                                        ? 'border-green-200 bg-green-100 text-green-700'
+                                        : 'border-yellow-200 bg-yellow-100 text-yellow-700'
+                                    }`}
+                                  >
+                                    {isCompleted ? 'Completed' : 'In Progress'}
                                   </div>
                                   <p className="mt-2 text-sm text-muted-foreground">
                                     {(session.generated_quizzes?.length || 0)} quizzes · {(session.generated_flashcards?.length || 0)} flashcards
@@ -540,6 +632,16 @@ export default function DashboardPage() {
                                 </div>
                               </div>
                             </div>
+                          );
+
+                          if (batchDeleteMode) {
+                            return <div key={session.id}>{ticketCard}</div>;
+                          }
+
+                          return (
+                            <Link key={session.id} href={`/lecture-notes/${session.id}`} className="block rounded-xl">
+                              {ticketCard}
+                            </Link>
                           );
                         })}
                     </div>
